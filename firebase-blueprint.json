@@ -1,0 +1,69 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "User profile.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "displayName": { "type": "string" }
+      },
+      "required": ["email", "displayName"]
+    },
+    "Album": {
+      "title": "Album",
+      "description": "A user's World Cup 2026 Sticker Album.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string" },
+        "sharedWith": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Array of user IDs who can also edit this album."
+        },
+        "name": { "type": "string" },
+        "stickers": {
+          "type": "object",
+          "description": "Map of sticker ID (e.g. 'BRA-1') to quantity owned. 0 means missing, 1 means have, >1 means duplicate."
+        }
+      },
+      "required": ["ownerId", "sharedWith", "name", "stickers"]
+    },
+    "Trade": {
+      "title": "Trade",
+      "description": "A trade offer for stickers.",
+      "type": "object",
+      "properties": {
+        "creatorId": { "type": "string" },
+        "creatorStickersOffered": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "creatorStickersRequested": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "status": {
+          "type": "string",
+          "enum": ["open", "completed", "cancelled"]
+        },
+        "responderId": { "type": "string" }
+      },
+      "required": ["creatorId", "creatorStickersOffered", "creatorStickersRequested", "status"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profiles."
+    },
+    "albums/{albumId}": {
+      "schema": { "$ref": "#/entities/Album" },
+      "description": "User albums storing sticker tracking data."
+    },
+    "trades/{tradeId}": {
+      "schema": { "$ref": "#/entities/Trade" },
+      "description": "Open or completed trades in the system."
+    }
+  }
+}

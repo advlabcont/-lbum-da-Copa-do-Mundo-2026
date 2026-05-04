@@ -1,0 +1,104 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidUser(data) {
+      return data.keys().hasAll(['email', 'displayName']) &&
+             data.email is string && data.email.size() <= 200 &&
+             data.displayName is string && data.displayName.size() <= 100;
+    }
+
+    function isValidAlbumCreate(data) {
+      return data.keys().hasAll(['ownerId', 'sharedWith', 'name', 'stickers']) &&
+             data.keys().size() == 4 &&
+             data.ownerId == request.auth.uid &&
+             data.sharedWith is list && data.sharedWith.size() <= 20 &&
+             data.name is string && data.name.size() <= 100 &&
+             data.stickers is map;
+    }
+
+    function isValidAlbumUpdate(data) {
+      return data.ownerId == request.auth.uid &&
+             data.sharedWith is list && data.sharedWith.size() <= 20 &&
+             data.name is string && data.name.size() <= 100 &&
+             data.stickers is map;
+    }
+
+    function isValidTradeCreate(data) {
+      return data.keys().hasAll(['creatorId', 'creatorStickersOffered', 'creatorStickersRequested', 'status']) &&
+             data.keys().size() == 4 &&
+             data.creatorId == request.auth.uid &&
+             data.creatorStickersOffered is list && data.creatorStickersOffered.size() <= 50 &&
+             data.creatorStickersRequested is list && data.creatorStickersRequested.size() <= 50 &&
+             data.status == 'open';
+    }
+
+    match /users/{userId} {
+      allow get: if isAuthenticated() && isValidId(userId);
+      allow list: if isAuthenticated(); 
+      allow create: if isAuthenticated() && isValidId(userId) && request.auth.uid == userId && isValidUser(incoming());
+      allow update: if isAuthenticated() && isValidId(userId) && request.auth.uid == userId &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email']) &&
+                    isValidUser(incoming());
+    }
+
+    match /albums/{albumId} {
+      allow get: if isAuthenticated() && isValidId(albumId) &&
+                  (existing().ownerId == request.auth.uid || request.auth.uid in existing().sharedWith);
+                  
+      allow list: if isAuthenticated() &&
+                  (existing().ownerId == request.auth.uid || request.auth.uid in existing().sharedWith);
+      
+      allow create: if isAuthenticated() && isValidId(albumId) &&
+                    isValidAlbumCreate(incoming());
+      
+      allow update: if isAuthenticated() && isValidId(albumId) &&
+                    (existing().ownerId == request.auth.uid || request.auth.uid in existing().sharedWith) &&
+                    incoming().diff(existing()).affectedKeys().hasOnly(['stickers', 'sharedWith', 'name']) &&
+                    isValidAlbumUpdate(incoming()) &&
+                    incoming().ownerId == existing().ownerId;
+                    
+      allow delete: if isAuthenticated() && isValidId(albumId) && existing().ownerId == request.auth.uid;
+    }
+
+    match /trades/{tradeId} {
+      allow get: if isAuthenticated() && isValidId(tradeId);
+      
+      allow list: if isAuthenticated();
+      
+      allow create: if isAuthenticated() && isValidId(tradeId) &&
+                    isValidTradeCreate(incoming());
+      
+      allow update: if isAuthenticated() && isValidId(tradeId) &&
+                    incoming().creatorId == existing().creatorId &&
+                    (
+                      // Creator can cancel
+                      (existing().creatorId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['status']) && incoming().status == 'cancelled' && incoming().creatorStickersOffered == existing().creatorStickersOffered && incoming().creatorStickersRequested == existing().creatorStickersRequested)
+                      ||
+                      // Responder can complete
+                      (incoming().diff(existing()).affectedKeys().hasOnly(['status', 'responderId']) && existing().status == 'open' && incoming().status == 'completed' && incoming().responderId == request.auth.uid)
+                    );
+                    
+      allow delete: if isAuthenticated() && isValidId(tradeId) && existing().creatorId == request.auth.uid;
+    }
+  }
+}
