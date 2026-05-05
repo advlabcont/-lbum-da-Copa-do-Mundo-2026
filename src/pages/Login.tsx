@@ -23,7 +23,12 @@ export default function Login() {
       await loginWithGoogle();
     } catch (err: any) {
       console.error(err);
-      setError(err.message || 'Erro ao fazer login com o Google.');
+      if (err.code === 'auth/popup-closed-by-user') {
+        // User closed the popup, no need to show a scary error
+        setError('O login com o Google foi cancelado.');
+      } else {
+        setError(err.message || 'Erro ao fazer login com o Google.');
+      }
     } finally {
       setLoading(false);
     }
