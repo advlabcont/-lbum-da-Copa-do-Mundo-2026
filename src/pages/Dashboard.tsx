@@ -97,8 +97,8 @@ export default function Dashboard() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-3xl font-black text-gray-900 tracking-tight">Meus Álbuns</h1>
+      <div className="flex items-center justify-between mb-6 md:mb-8">
+        <h1 className="text-[clamp(1.5rem,4vw,2.25rem)] font-black text-gray-900 tracking-tight leading-tight">Meus Álbuns</h1>
       </div>
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -157,16 +157,16 @@ export default function Dashboard() {
               value={newAlbumName}
               onChange={(e) => setNewAlbumName(e.target.value)}
               placeholder="Ex: Álbum Oficial Copa 26"
-              className="px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-1 focus:ring-green-500"
+              className="w-full h-12 px-4 border border-gray-300 rounded-lg text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 touch-manipulation"
               disabled={isCreating}
               required
             />
             <button
               type="submit"
               disabled={isCreating || !newAlbumName.trim()}
-              className="flex items-center justify-center space-x-2 w-full py-2 bg-green-50 hover:bg-green-100 text-green-700 rounded-md transition-colors disabled:opacity-50 text-sm font-medium"
+              className="flex items-center justify-center space-x-2 w-full min-h-[48px] px-4 py-3 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg transition-colors disabled:opacity-50 text-base font-medium touch-manipulation"
             >
-              <PlusCircle className="w-4 h-4" />
+              <PlusCircle className="w-5 h-5 flex-shrink-0" />
               <span>Criar Álbum</span>
             </button>
           </form>

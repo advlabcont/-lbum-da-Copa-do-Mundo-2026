@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { User, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth, db, handleFirestoreError, OperationType } from './firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 
@@ -7,6 +7,8 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   loginWithGoogle: () => Promise<void>;
+  loginWithEmail: (email: string, password: string) => Promise<void>;
+  registerWithEmail: (email: string, password: string, displayName: string) => Promise<void>;
   logout: () => Promise<void>;
 }
 
@@ -27,7 +29,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (!userSnap.exists()) {
             await setDoc(userDocRef, {
               email: currentUser.email,
-              displayName: currentUser.displayName || 'Unknown',
+              displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'Unknown',
             });
           }
         } catch (error) {
@@ -46,12 +48,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     await signInWithPopup(auth, provider);
   };
 
+  const loginWithEmail = async (email: string, password: string) => {
+    await signInWithEmailAndPassword(auth, email, password);
+  };
+
+  const registerWithEmail = async (email: string, password: string, displayName: string) => {
+    const { user } = await createUserWithEmailAndPassword(auth, email, password);
+    // User profile doc gets created automatically by the onAuthStateChanged effect
+    // But we might want to update it right away just to be sure
+    try {
+      const userDocRef = doc(db, 'users', user.uid);
+      await setDoc(userDocRef, {
+        email: user.email,
+        displayName: displayName || user.email?.split('@')[0] || 'Unknown',
+      });
+    } catch (e) {
+      console.error("Failed to pre-create user profile", e);
+    }
+  };
+
   const logout = async () => {
     await signOut(auth);
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, loginWithGoogle, logout }}>
+    <AuthContext.Provider value={{ user, loading, loginWithGoogle, loginWithEmail, registerWithEmail, logout }}>
       {!loading && children}
     </AuthContext.Provider>
   );

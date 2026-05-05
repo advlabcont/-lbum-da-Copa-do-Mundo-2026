@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { doc, onSnapshot, updateDoc, collection, query, where, getDocs, arrayUnion } from 'firebase/firestore';
 import { ALBUM_SECTIONS, AlbumSection, generateStickerIdsForSection, getTotalStickersCount } from '../lib/stickers';
-import { Users, UserPlus, FileImage, Minus, Plus, Share2, PieChart as PieChartIcon } from 'lucide-react';
+import { ArrowLeft, Users, UserPlus, FileImage, Minus, Plus, Share2, PieChart as PieChartIcon } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 
 interface Album {
@@ -147,7 +147,12 @@ export default function AlbumView() {
       {/* Sidebar for Navigation / Sharing */}
       <div className="w-full lg:w-64 flex-shrink-0 space-y-6">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900 border-b pb-4">{album.name}</h1>
+          <div className="flex items-center space-x-3 border-b pb-4">
+            <Link to="/" className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0 touch-manipulation">
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+            <h1 className="text-2xl font-bold text-gray-900 truncate">{album.name}</h1>
+          </div>
           <div className="flex items-center text-sm text-gray-500 mt-2">
             <Users className="w-4 h-4 mr-2" />
             {album.sharedWith.length} amigo(s)

@@ -1,1 +1,12 @@
 @import "tailwindcss";
+
+@layer utilities {
+  .safe-area-pb {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+html, body {
+  overscroll-behavior-x: none;
+  overflow-x: hidden;
+}

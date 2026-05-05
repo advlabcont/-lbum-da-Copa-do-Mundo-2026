@@ -107,39 +107,39 @@ export default function TradesView() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-8">
-        <h1 className="text-2xl font-bold text-gray-900 tracking-tight">Mercado de Trocas</h1>
+      <div className="flex items-center justify-between mb-6 md:mb-8">
+        <h1 className="text-[clamp(1.5rem,4vw,2.25rem)] font-black text-gray-900 tracking-tight leading-tight">Mercado de Trocas</h1>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
         <div className="lg:col-span-1">
-           <div className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
-             <h3 className="font-semibold text-lg mb-4 text-gray-900">Nova Proposta</h3>
-             <form onSubmit={handleCreateTrade} className="space-y-4">
+           <div className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm sticky top-[5rem]">
+             <h3 className="font-semibold text-xl mb-4 text-gray-900">Nova Proposta</h3>
+             <form onSubmit={handleCreateTrade} className="space-y-5">
                 <div>
-                   <label className="block text-sm font-medium text-gray-700 mb-1">Ofereço as figurinhas</label>
+                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Ofereço as figurinhas</label>
                    <input
                      type="text"
                      placeholder="BRA-1, ARG-5, FWC-3"
                      value={offered}
                      onChange={(e) => setOffered(e.target.value)}
-                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-green-500 focus:border-green-500"
+                     className="w-full h-12 px-4 shadow-sm border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-green-500 focus:border-green-500 touch-manipulation outline-none"
                    />
                 </div>
                 <div>
-                   <label className="block text-sm font-medium text-gray-700 mb-1">Quero em troca</label>
+                   <label className="block text-sm font-medium text-gray-700 mb-1.5">Quero em troca</label>
                    <input
                      type="text"
                      placeholder="USA-10, STA-1"
                      value={requested}
                      onChange={(e) => setRequested(e.target.value)}
-                     className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:ring-green-500 focus:border-green-500"
+                     className="w-full h-12 px-4 shadow-sm border border-gray-300 rounded-lg text-base focus:ring-2 focus:ring-green-500 focus:border-green-500 touch-manipulation outline-none"
                    />
                 </div>
                 <button
                   type="submit"
                   disabled={isCreating || !offered.trim() || !requested.trim()}
-                  className="w-full py-2 bg-green-600 hover:bg-green-700 text-white rounded-md text-sm font-medium transition-colors disabled:opacity-50"
+                  className="w-full min-h-[48px] py-3 bg-green-600 hover:bg-green-700 text-white rounded-lg text-base font-medium transition-colors disabled:opacity-50 touch-manipulation flex items-center justify-center"
                 >
                   Publicar Troca
                 </button>
@@ -153,13 +153,13 @@ export default function TradesView() {
               const isOpen = trade.status === 'open';
 
               return (
-                <div key={trade.id} className="bg-white rounded-xl border border-gray-200 p-5 shadow-sm flex items-center justify-between">
-                   <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-2">
-                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800">
+                <div key={trade.id} className="bg-white rounded-2xl border border-gray-200 p-5 lg:p-6 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-all hover:shadow-md">
+                   <div className="flex-1 w-full">
+                      <div className="flex items-center flex-wrap gap-2 mb-3">
+                         <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-100 text-blue-800">
                            {isMine ? 'Minha Proposta' : 'Oferta do Mercado'}
                          </span>
-                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                         <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
                             trade.status === 'open' ? 'bg-green-100 text-green-800' :
                             trade.status === 'completed' ? 'bg-gray-100 text-gray-800' :
                             'bg-red-100 text-red-800'
@@ -168,34 +168,38 @@ export default function TradesView() {
                          </span>
                       </div>
                       
-                      <div className="flex items-center space-x-4 mt-4">
-                         <div className="flex-1 bg-gray-50 border border-gray-100 rounded-lg p-3 text-sm">
-                            <span className="block text-gray-500 text-xs mb-1">Oferece:</span>
-                            <div className="font-semibold text-gray-800">{trade.creatorStickersOffered.join(', ')}</div>
+                      <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:space-x-4 w-full">
+                         <div className="flex-1 bg-gray-50 border border-gray-100 rounded-xl p-3 sm:p-4 text-sm w-full">
+                            <span className="block text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">Oferece:</span>
+                            <div className="font-semibold text-gray-800 break-words">{trade.creatorStickersOffered.join(', ')}</div>
                          </div>
-                         <ArrowLeftRight className="w-5 h-5 text-gray-400 flex-shrink-0" />
-                         <div className="flex-1 bg-gray-50 border border-gray-100 rounded-lg p-3 text-sm">
-                            <span className="block text-gray-500 text-xs mb-1">Pede:</span>
-                            <div className="font-semibold text-gray-800">{trade.creatorStickersRequested.join(', ')}</div>
+                         <div className="flex justify-center -my-2 sm:my-0 sm:block relative z-10">
+                           <div className="bg-white rounded-full p-1 border border-gray-100 sm:border-none sm:bg-transparent">
+                             <ArrowLeftRight className="w-5 h-5 text-gray-400 flex-shrink-0 transform rotate-90 sm:rotate-0" />
+                           </div>
+                         </div>
+                         <div className="flex-1 bg-gray-50 border border-gray-100 rounded-xl p-3 sm:p-4 text-sm w-full">
+                            <span className="block text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-1">Pede:</span>
+                            <div className="font-semibold text-gray-800 break-words">{trade.creatorStickersRequested.join(', ')}</div>
                          </div>
                       </div>
                    </div>
 
-                   <div className="ml-6 flex flex-col space-y-2">
+                   <div className="flex flex-col sm:w-auto w-full gap-2 mt-2 sm:mt-0 sm:ml-4 flex-shrink-0">
                       {isMine && isOpen && (
                          <button 
                            onClick={() => handleCancelTrade(trade.id)}
-                           className="px-4 py-2 border border-red-200 text-red-600 hover:bg-red-50 rounded-md text-sm font-medium transition-colors"
+                           className="w-full sm:w-auto min-h-[44px] px-4 py-2 border-2 border-red-100 text-red-600 hover:bg-red-50 hover:border-red-200 rounded-lg text-sm font-semibold transition-colors touch-manipulation flex items-center justify-center"
                          >
-                           <X className="w-4 h-4 inline mr-1" /> Cancelar
+                           <X className="w-4 h-4 mr-1.5" /> Cancelar
                          </button>
                       )}
                       {!isMine && isOpen && (
                          <button 
                            onClick={() => handleAcceptTrade(trade.id)}
-                           className="px-4 py-2 bg-green-600 text-white hover:bg-green-700 rounded-md text-sm font-medium transition-colors"
+                           className="w-full sm:w-auto min-h-[44px] px-4 py-2 bg-green-600 text-white hover:bg-green-700 shadow-sm rounded-lg text-sm font-semibold transition-colors touch-manipulation flex items-center justify-center transform active:scale-95"
                          >
-                           <Check className="w-4 h-4 inline mr-1" /> Aceitar Troca
+                           <Check className="w-4 h-4 mr-1.5" /> Aceitar Troca
                          </button>
                       )}
                    </div>
