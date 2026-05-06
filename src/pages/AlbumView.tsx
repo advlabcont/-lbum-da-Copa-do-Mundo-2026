@@ -4,8 +4,10 @@ import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { doc, onSnapshot, updateDoc, collection, query, where, getDocs, arrayUnion } from 'firebase/firestore';
 import { ALBUM_SECTIONS, AlbumSection, generateStickerIdsForSection, getTotalStickersCount } from '../lib/stickers';
-import { ArrowLeft, Users, UserPlus, FileImage, Minus, Plus, Share2, PieChart as PieChartIcon } from 'lucide-react';
+import { ArrowLeft, Users, UserPlus, Minus, Plus, Share2, Download } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 interface Album {
   id: string;
@@ -110,6 +112,37 @@ export default function AlbumView() {
     }
   };
 
+  const generatePDF = () => {
+    if (!album) return;
+    
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.text(`Figurinhas Repetidas - ${album.name}`, 14, 22);
+    
+    const repeated: [string, string][] = [];
+    (Object.entries(album.stickers || {}) as [string, number][]).forEach(([id, amount]) => {
+       if (amount > 1) {
+          repeated.push([id, `${amount - 1}`]);
+       }
+    });
+    
+    if (repeated.length === 0) {
+      alert('Você não tem figurinhas repetidas no momento.');
+      return;
+    }
+    
+    autoTable(doc, {
+      startY: 30,
+      head: [['Figurinha', 'Quantidade Repetida']],
+      body: repeated,
+      theme: 'grid',
+      styles: { fontSize: 12 },
+      headStyles: { fillColor: [21, 128, 61] } // bg-green-700
+    });
+    
+    doc.save(`repetidas-${album.name}.pdf`);
+  };
+
   if (loading) return <div className="p-8 text-center text-gray-500">Carregando álbum...</div>;
   if (!album) return null;
 
@@ -138,8 +171,8 @@ export default function AlbumView() {
   const percentage = Math.round((uniqueCollected / totalStickersCount) * 100) || 0;
 
   const chartData = [
-    { name: 'Tenho', value: uniqueCollected, color: '#22c55e' }, // green-500
-    { name: 'Falta', value: missingCount, color: '#f3f4f6' }, // gray-100
+    { name: 'Tenho', value: uniqueCollected, color: '#facc15' }, // yellow-400
+    { name: 'Falta', value: missingCount, color: '#e5e7eb' }, // gray-200
   ];
 
   return (
@@ -147,21 +180,30 @@ export default function AlbumView() {
       {/* Sidebar for Navigation / Sharing */}
       <div className="w-full lg:w-64 flex-shrink-0 space-y-6">
         <div>
-          <div className="flex items-center space-x-3 border-b pb-4">
-            <Link to="/" className="p-2 -ml-2 text-gray-500 hover:bg-gray-100 rounded-full transition-colors flex-shrink-0 touch-manipulation">
+          <div className="flex items-center space-x-3 border-b-2 border-yellow-200 pb-4">
+            <Link to="/" className="p-2 -ml-2 text-green-700 hover:bg-yellow-100 rounded-full transition-colors flex-shrink-0 touch-manipulation">
               <ArrowLeft className="w-5 h-5" />
             </Link>
-            <h1 className="text-2xl font-bold text-gray-900 truncate">{album.name}</h1>
+            <h1 className="text-2xl font-bold text-green-900 truncate">{album.name}</h1>
           </div>
-          <div className="flex items-center text-sm text-gray-500 mt-2">
-            <Users className="w-4 h-4 mr-2" />
-            {album.sharedWith.length} amigo(s)
+          <div className="flex items-center justify-between mt-3">
+             <div className="flex items-center text-sm text-green-700 font-medium">
+               <Users className="w-4 h-4 mr-2" />
+               {album.sharedWith.length} amigo(s)
+             </div>
+             <button
+               onClick={generatePDF}
+               className="flex items-center text-xs font-bold px-3 py-1.5 bg-yellow-400 text-green-900 rounded-lg hover:bg-yellow-500 transition-colors shadow-sm"
+             >
+               <Download className="w-3.5 h-3.5 mr-1.5" />
+               PDF Repetidas
+             </button>
           </div>
         </div>
 
         {isOwner && (
-          <div className="bg-white p-4 rounded-xl border border-gray-200">
-            <h3 className="text-sm font-semibold text-gray-900 flex items-center mb-3">
+          <div className="bg-white p-4 rounded-xl border border-yellow-300 shadow-sm">
+            <h3 className="text-sm font-semibold text-green-900 flex items-center mb-3">
               <Share2 className="w-4 h-4 mr-2" />
               Compartilhar
             </h3>
@@ -171,20 +213,20 @@ export default function AlbumView() {
                 placeholder="Email do parceiro(a)"
                 value={shareEmail}
                 onChange={(e) => setShareEmail(e.target.value)}
-                className="w-full text-sm px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-1 focus:ring-green-500"
+                className="w-full text-sm px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-green-500"
                 required
               />
               <button
                 type="submit"
                 disabled={isSharing}
-                className="w-full flex items-center justify-center py-2 bg-green-50 text-green-700 hover:bg-green-100 rounded-md transition-colors text-sm font-medium disabled:opacity-50"
+                className="w-full flex items-center justify-center py-2 bg-green-700 text-white hover:bg-green-800 rounded-md transition-colors text-sm font-medium disabled:opacity-50 touch-manipulation"
               >
                 <UserPlus className="w-4 h-4 mr-2" />
                 Adicionar
               </button>
             </form>
             {shareMessage.text && (
-              <p className={`mt-2 text-xs ${
+              <p className={`mt-2 text-xs font-medium ${
                 shareMessage.type === 'error' ? 'text-red-600' :
                 shareMessage.type === 'success' ? 'text-green-600' : 'text-blue-600'
               }`}>
@@ -194,8 +236,8 @@ export default function AlbumView() {
           </div>
         )}
 
-        <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <div className="bg-gray-50 px-4 py-3 border-b text-sm font-semibold text-gray-700">
+        <div className="bg-white rounded-xl border border-yellow-300 shadow-sm overflow-hidden">
+          <div className="bg-green-50 px-4 py-3 border-b border-yellow-200 text-sm font-bold text-green-900 uppercase tracking-wider">
             Seções
           </div>
           <div className="flex overflow-x-auto space-x-2 p-2 lg:flex-col lg:space-x-0 lg:max-h-[60vh] lg:overflow-y-auto w-full hide-scrollbar">
@@ -215,11 +257,11 @@ export default function AlbumView() {
                   key={section.id}
                   onClick={() => setActiveSection(section.id)}
                   className={`flex-shrink-0 lg:w-full flex items-center justify-between px-3 py-2 text-sm rounded-md transition-colors ${
-                    active ? 'bg-green-100 text-green-800 font-medium' : 'text-gray-600 hover:bg-gray-100'
+                    active ? 'bg-green-700 text-yellow-300 font-bold' : 'text-green-800 hover:bg-yellow-50 font-medium'
                   }`}
                 >
                   <span className="truncate mr-4">{section.name}</span>
-                  <span className="text-xs text-green-600 bg-white px-1.5 py-0.5 rounded-full border border-green-200 min-w-fit">
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full border min-w-fit ${active ? 'bg-green-800 text-yellow-300 border-green-600' : 'bg-white text-green-700 border-yellow-300'}`}>
                     {ownedCount}/{section.count}
                   </span>
                 </button>
@@ -233,7 +275,7 @@ export default function AlbumView() {
       <div className="flex-1 space-y-6">
         
         {/* Dashboard Progress Panel */}
-        <div className="bg-white rounded-xl border border-gray-200 p-6 flex flex-col md:flex-row items-center gap-8 shadow-sm">
+        <div className="bg-white rounded-xl border-t-4 border-yellow-400 p-6 flex flex-col md:flex-row items-center gap-8 shadow-md">
            <div className="relative w-40 h-40 flex-shrink-0">
               <ResponsiveContainer width="100%" height="100%">
                  <PieChart>
@@ -257,31 +299,31 @@ export default function AlbumView() {
                  </PieChart>
               </ResponsiveContainer>
               <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                 <span className="text-3xl font-black text-gray-800 tracking-tighter">{percentage}%</span>
-                 <span className="text-[10px] uppercase font-bold text-gray-400 tracking-wider">Completo</span>
+                 <span className="text-3xl font-black text-green-900 tracking-tighter">{percentage}%</span>
+                 <span className="text-[10px] uppercase font-bold text-green-700 tracking-wider">Completo</span>
               </div>
            </div>
            
-           <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-6 w-full">
-             <div className="bg-gray-50 border border-gray-100 rounded-lg p-4">
-                <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Álbum</p>
-                <p className="text-2xl font-bold text-gray-900">{totalStickersCount}</p>
+           <div className="flex-1 grid grid-cols-2 sm:grid-cols-3 gap-4 lg:gap-6 w-full">
+             <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 lg:p-4 shadow-sm">
+                <p className="text-gray-500 text-[10px] font-bold uppercase tracking-wider mb-0.5 lg:mb-1">Álbum</p>
+                <p className="text-xl lg:text-2xl font-black text-gray-800">{totalStickersCount}</p>
              </div>
-             <div className="bg-green-50 border border-green-100 rounded-lg p-4">
-                <p className="text-green-600 text-xs font-semibold uppercase tracking-wider mb-1">Tenho</p>
-                <p className="text-2xl font-bold text-green-700">{uniqueCollected}</p>
+             <div className="bg-green-50 border border-green-200 rounded-lg p-3 lg:p-4 shadow-sm">
+                <p className="text-green-700 text-[10px] font-bold uppercase tracking-wider mb-0.5 lg:mb-1">Tenho</p>
+                <p className="text-xl lg:text-2xl font-black text-green-800">{uniqueCollected}</p>
              </div>
-             <div className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
-                <p className="text-gray-500 text-xs font-semibold uppercase tracking-wider mb-1">Faltam</p>
-                <p className="text-2xl font-bold text-gray-400">{missingCount}</p>
+             <div className="bg-white border border-gray-200 rounded-lg p-3 lg:p-4 shadow-sm">
+                <p className="text-gray-400 text-[10px] font-bold uppercase tracking-wider mb-0.5 lg:mb-1">Faltam</p>
+                <p className="text-xl lg:text-2xl font-black text-gray-500">{missingCount}</p>
              </div>
-             <div className="bg-blue-50 border border-blue-100 rounded-lg p-4">
-                <p className="text-blue-600 text-xs font-semibold uppercase tracking-wider mb-1">Estoque</p>
-                <p className="text-2xl font-bold text-blue-700">{totalCardsCount}</p>
+             <div className="bg-green-800 border border-green-900 rounded-lg p-3 lg:p-4 shadow-sm text-center col-span-2 sm:col-span-1">
+                <p className="text-green-200 text-[10px] font-bold uppercase tracking-wider mb-0.5 lg:mb-1">Estoque</p>
+                <p className="text-xl lg:text-2xl font-black text-yellow-400">{totalCardsCount}</p>
              </div>
-             <div className="bg-yellow-50 border border-yellow-100 rounded-lg p-4">
-                <p className="text-yellow-600 text-xs font-semibold uppercase tracking-wider mb-1">Repetidas</p>
-                <p className="text-2xl font-bold text-yellow-700">{duplicates}</p>
+             <div className="bg-yellow-400 border border-yellow-500 rounded-lg p-3 lg:p-4 shadow-sm text-center col-span-2 sm:col-span-2">
+                <p className="text-yellow-900 text-[10px] font-bold uppercase tracking-wider mb-0.5 lg:mb-1">Repetidas</p>
+                <p className="text-xl lg:text-3xl font-black text-green-900">{duplicates}</p>
              </div>
            </div>
         </div>
@@ -290,15 +332,15 @@ export default function AlbumView() {
         <div className="flex flex-wrap items-center gap-4 px-2">
           <div className="flex items-center">
              <div className="w-4 h-4 bg-gray-100 border border-gray-300 rounded mr-2" />
-             <span className="text-sm text-gray-600">Falta</span>
+             <span className="text-sm font-medium text-gray-700">Falta</span>
           </div>
           <div className="flex items-center">
-             <div className="w-4 h-4 bg-green-500 rounded mr-2" />
-             <span className="text-sm text-gray-600">Tenho (1)</span>
+             <div className="w-4 h-4 bg-green-700 shadow-md rounded mr-2 border border-green-800" />
+             <span className="text-sm font-medium text-gray-700">Tenho (1)</span>
           </div>
           <div className="flex items-center">
-             <div className="w-4 h-4 bg-yellow-400 rounded mr-2" />
-             <span className="text-sm text-gray-600">Repetida (2+)</span>
+             <div className="w-4 h-4 bg-yellow-400 shadow-md rounded mr-2 border border-yellow-500" />
+             <span className="text-sm font-medium text-gray-700">Repetida (2+)</span>
           </div>
         </div>
 
@@ -317,24 +359,30 @@ export default function AlbumView() {
              return (
                <div 
                  key={stickerId}
-                 className="flex flex-col items-center group relative pt-8"
+                 className="flex flex-col items-center group relative pt-6"
                >
                  <div
                    onClick={handleStickerClick}
-                   className={`relative cursor-pointer select-none w-14 h-16 sm:w-16 sm:h-20 flex flex-col items-center justify-center border-2 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-400
+                   className={`relative cursor-pointer select-none w-14 h-16 sm:w-16 sm:h-20 flex flex-col items-center justify-center border-2 rounded-lg transition-all focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-700 touch-manipulation
                     ${isMissing 
-                      ? 'bg-gray-50 border-gray-300 text-gray-400 hover:border-green-300 hover:text-green-500' 
+                      ? 'bg-gray-50 border-gray-300 text-gray-400 hover:border-green-300 hover:text-green-700' 
                       : isDuplicate
-                        ? 'bg-yellow-400 border-yellow-500 shadow-md shadow-yellow-100 hover:bg-yellow-500 text-yellow-900 font-bold'
-                        : 'bg-green-500 border-green-600 text-white shadow-md shadow-green-100 hover:bg-green-600 font-bold'
+                        ? 'bg-yellow-400 border-yellow-500 shadow-sm hover:bg-yellow-500 text-green-900 font-black'
+                        : 'bg-green-700 border-green-800 text-yellow-300 shadow-sm hover:bg-green-800 font-bold'
                     }
                    `}
                  >
-                    <span className="text-xs font-semibold mb-1 opacity-70 tracking-tighter">{currentSectionData?.id}</span>
-                    <span className="text-lg">{stickerId.split('-')[1]}</span>
+                    <span className={`text-[10px] font-bold mb-0.5 tracking-tighter ${isMissing ? 'opacity-70' : 'opacity-90'}`}>
+                      {currentSectionData?.id}
+                    </span>
+                    <span className="text-lg leading-none">{stickerId.split('-')[1]}</span>
                     
                     {amount > 0 && (
-                      <div className="absolute -top-2 -right-2 w-6 h-6 bg-white border text-gray-900 rounded-full flex items-center justify-center text-xs font-bold shadow-sm">
+                      <div className={`absolute -top-2 -right-2 w-6 h-6 border rounded-full flex items-center justify-center text-[10px] font-black shadow-sm ${
+                        isDuplicate 
+                          ? 'bg-green-800 border-green-900 text-yellow-300' 
+                          : 'bg-yellow-400 border-yellow-500 text-green-900'
+                      }`}>
                         {amount}
                       </div>
                     )}

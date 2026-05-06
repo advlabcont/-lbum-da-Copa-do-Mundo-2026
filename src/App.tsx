@@ -9,7 +9,6 @@ import { AuthProvider, useAuth } from './lib/AuthContext';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import AlbumView from './pages/AlbumView';
-import TradesView from './pages/TradesView';
 import Layout from './components/Layout';
 
 function ProtectedRoute({ children }: { children: React.ReactNode }) {
@@ -35,7 +34,6 @@ export default function App() {
           >
             <Route index element={<Dashboard />} />
             <Route path="album/:albumId" element={<AlbumView />} />
-            <Route path="trades" element={<TradesView />} />
           </Route>
         </Routes>
       </BrowserRouter>

@@ -112,27 +112,27 @@ export default function Dashboard() {
           <Link
             key={album.id}
             to={`/album/${album.id}`}
-            className="block bg-white rounded-2xl border border-gray-200 shadow-sm hover:shadow-lg hover:border-green-300 hover:-translate-y-1 transition-all overflow-hidden relative group"
+            className="block bg-white rounded-2xl border border-yellow-300 shadow-sm hover:shadow-lg hover:border-yellow-400 hover:-translate-y-1 transition-all overflow-hidden relative group"
           >
-            <div className="h-2 bg-gray-100 w-full absolute top-0 left-0">
-               <div className="h-full bg-green-500 transition-all duration-1000" style={{ width: `${pct}%` }}></div>
+            <div className="h-2 bg-yellow-100 w-full absolute top-0 left-0">
+               <div className="h-full bg-green-700 transition-all duration-1000" style={{ width: `${pct}%` }}></div>
             </div>
             
             <div className="p-6 pt-8">
               <div className="flex items-start justify-between">
                 <div className="flex-1">
                   <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-2 text-green-700">
-                      <BookOpen className="w-5 h-5" />
-                      <h3 className="font-bold text-xl leading-none truncate text-gray-900">{album.name}</h3>
+                    <div className="flex items-center space-x-2 text-green-800">
+                      <BookOpen className="w-5 h-5 flex-shrink-0" />
+                      <h3 className="font-bold text-xl leading-none truncate text-green-900">{album.name}</h3>
                     </div>
                   </div>
                   
                   <div className="mt-4 flex items-center justify-between text-sm">
                     <div className="text-gray-500">
-                      <span className="font-semibold text-gray-900">{uniqueCollected}</span> de {totalStickersCount}
+                      <span className="font-black text-gray-800">{uniqueCollected}</span> de {totalStickersCount}
                     </div>
-                    <div className="font-bold text-green-600">
+                    <div className="font-bold text-green-700">
                       {pct}%
                     </div>
                   </div>
@@ -140,7 +140,7 @@ export default function Dashboard() {
               </div>
               
               {album.sharedWith && album.sharedWith.length > 0 && (
-                <div className="mt-4 flex items-center text-xs font-semibold text-blue-700 bg-blue-50 border border-blue-100 px-3 py-1.5 rounded-full w-fit">
+                <div className="mt-4 flex items-center text-xs font-bold text-green-900 bg-yellow-400 px-3 py-1.5 rounded-full w-fit">
                   <Users className="w-3.5 h-3.5 mr-1.5" />
                   Compartilhado
                 </div>
@@ -149,22 +149,22 @@ export default function Dashboard() {
           </Link>
         )})}
 
-        <div className="bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300 p-6 flex flex-col justify-center hover:bg-gray-100 transition-colors">
+        <div className="bg-white rounded-2xl border-2 border-dashed border-yellow-300 p-6 flex flex-col justify-center hover:bg-yellow-50 transition-colors">
           <form onSubmit={handleCreateAlbum} className="flex flex-col space-y-4 w-full">
-            <h3 className="font-medium text-gray-900 leading-none mb-1">Novo Álbum</h3>
+            <h3 className="font-bold text-green-900 leading-none mb-1">Novo Álbum</h3>
             <input
               type="text"
               value={newAlbumName}
               onChange={(e) => setNewAlbumName(e.target.value)}
               placeholder="Ex: Álbum Oficial Copa 26"
-              className="w-full h-12 px-4 border border-gray-300 rounded-lg text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 touch-manipulation"
+              className="w-full h-12 px-4 border border-gray-300 rounded-lg text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-green-700 focus:border-green-700 touch-manipulation"
               disabled={isCreating}
               required
             />
             <button
               type="submit"
               disabled={isCreating || !newAlbumName.trim()}
-              className="flex items-center justify-center space-x-2 w-full min-h-[48px] px-4 py-3 bg-green-50 hover:bg-green-100 text-green-700 rounded-lg transition-colors disabled:opacity-50 text-base font-medium touch-manipulation"
+              className="flex items-center justify-center space-x-2 w-full min-h-[48px] px-4 py-3 bg-yellow-400 hover:bg-yellow-500 text-green-900 rounded-lg transition-colors disabled:opacity-50 text-base font-bold touch-manipulation"
             >
               <PlusCircle className="w-5 h-5 flex-shrink-0" />
               <span>Criar Álbum</span>
