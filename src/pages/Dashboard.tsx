@@ -4,7 +4,7 @@ import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, where, onSnapshot, addDoc } from 'firebase/firestore';
 import { Link, useNavigate } from 'react-router-dom';
 import { PlusCircle, BookOpen, Users } from 'lucide-react';
-import { getTotalStickersCount } from '../lib/stickers';
+import { getTotalStickersCount, ALBUM_SECTIONS } from '../lib/stickers';
 
 interface Album {
   id: string;
@@ -105,7 +105,11 @@ export default function Dashboard() {
         {albums.map((album) => {
           // Calculate progress
           const totalStickersCount = getTotalStickersCount();
-          const uniqueCollected = Object.values(album.stickers || {}).filter((amount: any) => amount > 0).length;
+          const uniqueCollected = Object.entries(album.stickers || {}).filter(([id, amount]) => {
+            const sectionId = id.split('-')[0];
+            const section = ALBUM_SECTIONS.find(s => s.id === sectionId);
+            return (amount as number) > 0 && section && !section.excludeFromTotal;
+          }).length;
           const pct = Math.round((uniqueCollected / totalStickersCount) * 100) || 0;
           
           return (
