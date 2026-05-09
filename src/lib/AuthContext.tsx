@@ -25,13 +25,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const userDocRef = doc(db, 'users', currentUser.uid);
           const userSnap = await getDoc(userDocRef);
           if (!userSnap.exists()) {
+            const email = currentUser.email?.toLowerCase() || '';
+            const displayName = currentUser.displayName || email.split('@')[0] || 'Colecionador';
+            
             await setDoc(userDocRef, {
-              email: currentUser.email,
-              displayName: currentUser.displayName || currentUser.email?.split('@')[0] || 'Unknown',
+              email,
+              displayName,
             });
           }
         } catch (error) {
-           // We might not have permissions to read other users, but we should be able to read/write ours
            console.error("Error creating user profile", error);
         }
       }

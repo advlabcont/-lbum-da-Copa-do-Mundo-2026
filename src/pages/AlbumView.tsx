@@ -106,6 +106,8 @@ export default function AlbumView() {
       }
 
       const friendId = querySnapshot.docs[0].id;
+      const friendData = querySnapshot.docs[0].data();
+      const friendName = friendData.displayName || shareEmail;
       
       if (friendId === album?.ownerId) {
          setShareMessage({ type: 'error', text: 'Você já é o dono deste álbum.' });
@@ -113,7 +115,7 @@ export default function AlbumView() {
       }
 
       if (album?.sharedWith?.includes(friendId)) {
-         setShareMessage({ type: 'info', text: 'Álbum já compartilhado com esta pessoa.' });
+         setShareMessage({ type: 'info', text: `Este álbum já está compartilhado com ${friendName}.` });
          return;
       }
 
@@ -122,7 +124,7 @@ export default function AlbumView() {
         sharedWith: arrayUnion(friendId)
       });
 
-      setShareMessage({ type: 'success', text: 'Álbum compartilhado com sucesso!' });
+      setShareMessage({ type: 'success', text: `Álbum compartilhado com ${friendName}!` });
       setShareEmail('');
     } catch (error) {
       console.error(error);

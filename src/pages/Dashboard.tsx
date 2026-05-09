@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, onSnapshot, addDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc } from 'firebase/firestore';
 import { Link, useNavigate } from 'react-router-dom';
-import { PlusCircle, BookOpen, Users } from 'lucide-react';
+import { PlusCircle, BookOpen, Users, Trash2 } from 'lucide-react';
 import { getTotalStickersCount, ALBUM_SECTIONS } from '../lib/stickers';
 
 interface Album {
@@ -25,45 +25,47 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user) return;
 
+    let albums1: Album[] = [];
+    let albums2: Album[] = [];
+    let loading1 = true;
+    let loading2 = true;
+
+    const updateMergedAlbums = () => {
+      const map = new Map<string, Album>();
+      albums1.forEach(a => map.set(a.id, a));
+      albums2.forEach(a => map.set(a.id, a));
+      const merged = Array.from(map.values());
+      console.log(`Merged albums for ${user.uid}:`, merged.length, merged.map(a => a.name));
+      setAlbums(merged);
+      
+      if (!loading1 && !loading2) {
+        setLoading(false);
+      }
+    };
+
     try {
       const q1 = query(collection(db, 'albums'), where('ownerId', '==', user.uid));
       const q2 = query(collection(db, 'albums'), where('sharedWith', 'array-contains', user.uid));
 
-      const handleSnapshots = () => {
-        // We will collect from both queries and merge
-      };
-
-      const albumsMap = new Map<string, Album>();
-
       const unsubscribe1 = onSnapshot(q1, (snapshot) => {
-        console.log("q1 size:", snapshot.size);
-        snapshot.docChanges().forEach((change) => {
-          if (change.type === 'removed') {
-            albumsMap.delete(change.doc.id);
-          } else {
-            albumsMap.set(change.doc.id, { id: change.doc.id, ...change.doc.data() } as Album);
-          }
-        });
-        setAlbums(Array.from(albumsMap.values()));
-        setLoading(false);
+        albums1 = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Album));
+        loading1 = false;
+        updateMergedAlbums();
       }, (error) => {
         console.error("Q1 error:", error);
+        loading1 = false;
+        updateMergedAlbums();
         handleFirestoreError(error, OperationType.LIST, 'albums-owner');
       });
 
       const unsubscribe2 = onSnapshot(q2, (snapshot) => {
-        console.log("q2 size:", snapshot.size);
-        snapshot.docChanges().forEach((change) => {
-          if (change.type === 'removed') {
-            albumsMap.delete(change.doc.id);
-          } else {
-            albumsMap.set(change.doc.id, { id: change.doc.id, ...change.doc.data() } as Album);
-          }
-        });
-        setAlbums(Array.from(albumsMap.values()));
-        setLoading(false);
+        albums2 = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Album));
+        loading2 = false;
+        updateMergedAlbums();
       }, (error) => {
         console.error("Q2 error:", error);
+        loading2 = false;
+        updateMergedAlbums();
         handleFirestoreError(error, OperationType.LIST, 'albums-shared');
       });
 
@@ -94,6 +96,21 @@ export default function Dashboard() {
     } finally {
       setIsCreating(false);
       setNewAlbumName('');
+    }
+  };
+
+  const handleDeleteAlbum = async (e: React.MouseEvent, albumId: string) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (!window.confirm('Tem certeza que deseja excluir este álbum? Esta ação é irreversível.')) {
+      return;
+    }
+
+    try {
+      await deleteDoc(doc(db, 'albums', albumId));
+    } catch (error) {
+      handleFirestoreError(error, OperationType.DELETE, `albums/${albumId}`);
     }
   };
 
@@ -134,6 +151,15 @@ export default function Dashboard() {
                       <BookOpen className="w-5 h-5 flex-shrink-0" />
                       <h3 className="font-bold text-xl leading-none truncate text-green-900">{album.name}</h3>
                     </div>
+                    {album.ownerId === user?.uid && (
+                      <button
+                        onClick={(e) => handleDeleteAlbum(e, album.id)}
+                        className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
+                        title="Excluir Álbum"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                   
                   <div className="mt-4 flex items-center justify-between text-sm">

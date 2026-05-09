@@ -56,7 +56,7 @@ service cloud.firestore {
       allow list: if isAuthenticated(); 
       allow create: if isAuthenticated() && isValidId(userId) && request.auth.uid == userId && isValidUser(incoming());
       allow update: if isAuthenticated() && isValidId(userId) && request.auth.uid == userId &&
-                    incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'email']) &&
+                    incoming().diff(resource.data).affectedKeys().hasOnly(['displayName', 'email']) &&
                     isValidUser(incoming());
     }
 

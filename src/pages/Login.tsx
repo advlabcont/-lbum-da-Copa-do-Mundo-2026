@@ -16,14 +16,21 @@ export default function Login() {
     setLoading(true);
     setError('');
     try {
+      console.log("Starting Google Login...");
       await loginWithGoogle();
+      console.log("Login successful");
     } catch (err: any) {
-      console.error(err);
+      console.error("Login error details:", err);
       if (err.code === 'auth/popup-closed-by-user') {
-        // User closed the popup, no need to show a scary error
         setError('O login com o Google foi cancelado.');
+      } else if (err.code === 'auth/popup-blocked') {
+        setError('O navegador bloqueou o popup de login. Verifique se o seu navegador permite janelas popup ou tente abrir o site em uma nova aba fora do editor.');
+      } else if (err.code === 'auth/unauthorized-domain') {
+        setError('Este domínio não está autorizado para login. Por favor, use a URL oficial ou reporte este problema.');
+      } else if (err.code === 'auth/network-request-failed') {
+        setError('Erro de conexão. Verifique sua internet.');
       } else {
-        setError(err.message || 'Erro ao fazer login com o Google.');
+        setError(`Erro ao fazer login: ${err.message || 'Erro desconhecido'}`);
       }
     } finally {
       setLoading(false);
