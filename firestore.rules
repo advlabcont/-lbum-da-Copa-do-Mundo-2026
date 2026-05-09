@@ -37,8 +37,7 @@ service cloud.firestore {
     }
 
     function isValidAlbumUpdate(data) {
-      return data.ownerId == request.auth.uid &&
-             data.sharedWith is list && data.sharedWith.size() <= 20 &&
+      return data.sharedWith is list && data.sharedWith.size() <= 20 &&
              data.name is string && data.name.size() <= 100 &&
              data.stickers is map;
     }
