@@ -96,7 +96,8 @@ export default function AlbumView() {
     try {
       // Find user by email
       const usersRef = collection(db, 'users');
-      const q = query(usersRef, where('email', '==', shareEmail.trim()));
+      // Firebase generally returns emails in lowercase from auth providers
+      const q = query(usersRef, where('email', '==', shareEmail.trim().toLowerCase()));
       const querySnapshot = await getDocs(q);
 
       if (querySnapshot.empty) {

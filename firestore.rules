@@ -62,21 +62,21 @@ service cloud.firestore {
 
     match /albums/{albumId} {
       allow get: if isAuthenticated() && isValidId(albumId) &&
-                  (existing().ownerId == request.auth.uid || request.auth.uid in existing().sharedWith);
+                  (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.sharedWith);
                   
       allow list: if isAuthenticated() &&
-                  (existing().ownerId == request.auth.uid || request.auth.uid in existing().sharedWith);
+                  (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.sharedWith);
       
       allow create: if isAuthenticated() && isValidId(albumId) &&
                     isValidAlbumCreate(incoming());
       
       allow update: if isAuthenticated() && isValidId(albumId) &&
-                    (existing().ownerId == request.auth.uid || request.auth.uid in existing().sharedWith) &&
-                    incoming().diff(existing()).affectedKeys().hasOnly(['stickers', 'sharedWith', 'name']) &&
+                    (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.sharedWith) &&
+                    incoming().diff(resource.data).affectedKeys().hasOnly(['stickers', 'sharedWith', 'name']) &&
                     isValidAlbumUpdate(incoming()) &&
-                    incoming().ownerId == existing().ownerId;
+                    incoming().ownerId == resource.data.ownerId;
                     
-      allow delete: if isAuthenticated() && isValidId(albumId) && existing().ownerId == request.auth.uid;
+      allow delete: if isAuthenticated() && isValidId(albumId) && resource.data.ownerId == request.auth.uid;
     }
 
     match /trades/{tradeId} {

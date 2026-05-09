@@ -36,6 +36,7 @@ export default function Dashboard() {
       const albumsMap = new Map<string, Album>();
 
       const unsubscribe1 = onSnapshot(q1, (snapshot) => {
+        console.log("q1 size:", snapshot.size);
         snapshot.docChanges().forEach((change) => {
           if (change.type === 'removed') {
             albumsMap.delete(change.doc.id);
@@ -46,10 +47,12 @@ export default function Dashboard() {
         setAlbums(Array.from(albumsMap.values()));
         setLoading(false);
       }, (error) => {
+        console.error("Q1 error:", error);
         handleFirestoreError(error, OperationType.LIST, 'albums-owner');
       });
 
       const unsubscribe2 = onSnapshot(q2, (snapshot) => {
+        console.log("q2 size:", snapshot.size);
         snapshot.docChanges().forEach((change) => {
           if (change.type === 'removed') {
             albumsMap.delete(change.doc.id);
@@ -60,6 +63,7 @@ export default function Dashboard() {
         setAlbums(Array.from(albumsMap.values()));
         setLoading(false);
       }, (error) => {
+        console.error("Q2 error:", error);
         handleFirestoreError(error, OperationType.LIST, 'albums-shared');
       });
 
