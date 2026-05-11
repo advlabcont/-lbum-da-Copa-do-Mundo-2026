@@ -64,6 +64,19 @@
     "trades/{tradeId}": {
       "schema": { "$ref": "#/entities/Trade" },
       "description": "Open or completed trades in the system."
+    },
+    "announcements/{announcementId}": {
+      "schema": {
+        "type": "object",
+        "properties": {
+          "title": { "type": "string" },
+          "content": { "type": "string" },
+          "createdAt": { "type": "string", "format": "date-time" },
+          "type": { "type": "string", "enum": ["news", "update", "alert"] }
+        },
+        "required": ["title", "content", "createdAt", "type"]
+      },
+      "description": "System-wide news and updates."
     }
   }
 }

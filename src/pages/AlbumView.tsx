@@ -71,7 +71,7 @@ export default function AlbumView() {
   const updateSticker = async (stickerId: string, delta: number) => {
     if (!album || !albumId) return;
     
-    const currentAmount = album.stickers[stickerId] || 0;
+    const currentAmount = (album.stickers && album.stickers[stickerId]) ? album.stickers[stickerId] : 0;
     const newAmount = Math.max(0, currentAmount + delta); // don't go below 0
 
     // Optimistic UI updates are handled by onSnapshot fairly quickly,
@@ -356,7 +356,7 @@ export default function AlbumView() {
          </div>
       </div>
 
-      {/* Controls Container */}
+       {/* Controls Container */}
       <div className="flex flex-col gap-4">
         {/* Search */}
         <div className="relative w-full">
@@ -365,7 +365,7 @@ export default function AlbumView() {
              type="text" 
              value={searchQuery}
              onChange={(e) => setSearchQuery(e.target.value)}
-             placeholder="Buscar seleção, código ou número (ex: Brasil, Portugal, BRA-07)"
+             placeholder="Buscar seleção, código ou número (ex: BRA-07)"
              className="w-full text-base lg:text-lg pl-12 pr-4 py-4 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-green-500 shadow-sm transition-all text-green-900"
            />
         </div>
@@ -410,7 +410,7 @@ export default function AlbumView() {
             const secIds = generateStickerIdsForSection(section);
             let ownedCount = 0;
             secIds.forEach(id => {
-               if (album.stickers[id] && album.stickers[id] > 0) ownedCount++;
+               if (album.stickers && album.stickers[id] && album.stickers[id] > 0) ownedCount++;
             });
 
             return (
@@ -429,7 +429,7 @@ export default function AlbumView() {
                 
                 <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12 gap-3">
                   {stickers.map((stickerId) => {
-                    const amount = album.stickers[stickerId] || 0;
+                    const amount = (album.stickers && album.stickers[stickerId]) ? album.stickers[stickerId] : 0;
                     const sectionId = stickerId.split('-')[0];
                     const isMissing = amount === 0;
                     const isDuplicate = amount > 1;

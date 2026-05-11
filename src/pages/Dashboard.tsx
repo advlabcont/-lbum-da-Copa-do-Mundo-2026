@@ -1,9 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, orderBy, limit } from 'firebase/firestore';
 import { Link, useNavigate } from 'react-router-dom';
-import { PlusCircle, BookOpen, Users, Trash2 } from 'lucide-react';
+import { PlusCircle, BookOpen, Users, Trash2, Megaphone, ChevronRight } from 'lucide-react';
 import { getTotalStickersCount, ALBUM_SECTIONS } from '../lib/stickers';
 
 interface Album {
@@ -14,9 +14,18 @@ interface Album {
   stickers: Record<string, number>;
 }
 
+interface Announcement {
+  id: string;
+  title: string;
+  content: string;
+  type: 'news' | 'update' | 'alert';
+  createdAt: any;
+}
+
 export default function Dashboard() {
   const { user } = useAuth();
   const [albums, setAlbums] = useState<Album[]>([]);
+  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [newAlbumName, setNewAlbumName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
@@ -24,6 +33,20 @@ export default function Dashboard() {
 
   useEffect(() => {
     if (!user) return;
+
+    // Fetch announcements
+    const annQuery = query(
+      collection(db, 'announcements'), 
+      orderBy('createdAt', 'desc'),
+      limit(3)
+    );
+
+    const unsubscribeAnn = onSnapshot(annQuery, (snapshot) => {
+      setAnnouncements(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Announcement)));
+    }, (error) => {
+      console.error("Announcements fetch error:", error);
+      // Not throwing a UI error for announcements if it fails (e.g. index building)
+    });
 
     let albums1: Album[] = [];
     let albums2: Album[] = [];
@@ -72,6 +95,7 @@ export default function Dashboard() {
       return () => {
         unsubscribe1();
         unsubscribe2();
+        unsubscribeAnn();
       };
     } catch (error) {
       handleFirestoreError(error, OperationType.LIST, 'albums');
@@ -121,6 +145,43 @@ export default function Dashboard() {
       <div className="flex items-center justify-between mb-6 md:mb-8">
         <h1 className="text-[clamp(1.5rem,4vw,2.25rem)] font-black text-gray-900 tracking-tight leading-tight">Meus Álbuns</h1>
       </div>
+
+      {announcements.length > 0 && (
+        <div className="mb-10 bg-green-50 border border-green-100 rounded-3xl p-6 md:p-8 relative overflow-hidden">
+          <div className="absolute top-0 right-0 p-4 opacity-10">
+            <Megaphone className="w-24 h-24 rotate-12" />
+          </div>
+          
+          <div className="relative z-10">
+            <div className="flex items-center gap-2 mb-4">
+              <Megaphone className="w-5 h-5 text-green-700" />
+              <h2 className="font-black text-green-900 uppercase tracking-wider text-sm">Novidades</h2>
+            </div>
+            
+            <div className="space-y-4">
+              {announcements.map((ann) => (
+                <div key={ann.id} className="flex items-start gap-4 p-4 bg-white/60 hover:bg-white rounded-2xl transition-colors border border-green-100/50 group cursor-default">
+                  <div className={`mt-1 w-2 h-2 rounded-full shrink-0 ${ann.type === 'alert' ? 'bg-red-500' : 'bg-green-500'}`} />
+                  <div className="flex-1">
+                    <h3 className="font-bold text-green-950 text-base">{ann.title}</h3>
+                    <p className="text-green-800/70 text-sm mt-1 leading-relaxed">{ann.content}</p>
+                    {ann.createdAt && (
+                      <span className="text-[10px] font-bold text-green-600/50 uppercase mt-2 block">
+                        {ann.createdAt.seconds 
+                          ? new Date(ann.createdAt.seconds * 1000).toLocaleDateString('pt-BR') 
+                          : new Date(ann.createdAt).toLocaleDateString('pt-BR') !== 'Invalid Date'
+                            ? new Date(ann.createdAt).toLocaleDateString('pt-BR')
+                            : ''
+                        }
+                      </span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {albums.map((album) => {
