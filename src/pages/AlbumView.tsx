@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { doc, onSnapshot, updateDoc, collection, query, where, getDocs, arrayUnion } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, collection, query, where, getDocs, arrayUnion, getDoc } from 'firebase/firestore';
 import { ALBUM_SECTIONS, AlbumSection, generateStickerIdsForSection, getTotalStickersCount, isStandardSticker, getExtraStickersCount, getAllStickerIds } from '../lib/stickers';
 import { ArrowLeft, Users, UserPlus, Minus, Plus, Share2, Download, Search, HelpCircle } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -23,6 +23,7 @@ export default function AlbumView() {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [album, setAlbum] = useState<Album | null>(null);
+  const [ownerName, setOwnerName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [shareEmail, setShareEmail] = useState('');
   const [shareMessage, setShareMessage] = useState({ type: '', text: '' });
@@ -53,9 +54,24 @@ export default function AlbumView() {
     if (!user || !albumId) return;
 
     const docRef = doc(db, 'albums', albumId);
-    const unsubscribe = onSnapshot(docRef, (docSnap) => {
+    const unsubscribe = onSnapshot(docRef, async (docSnap) => {
       if (docSnap.exists()) {
-        setAlbum({ id: docSnap.id, ...docSnap.data() } as Album);
+        const albumData = { id: docSnap.id, ...docSnap.data() } as Album;
+        setAlbum(albumData);
+        
+        // Fetch owner name if not current user
+        if (albumData.ownerId !== user.uid) {
+           try {
+              const ownerSnap = await getDoc(doc(db, 'users', albumData.ownerId));
+              if (ownerSnap.exists()) {
+                 setOwnerName(ownerSnap.data().displayName || 'Colecionador');
+              } else {
+                 setOwnerName('Colecionador');
+              }
+           } catch (e) {
+              console.error("Error fetching owner name", e);
+           }
+        }
       } else {
         // Album deleted or doesn't exist
         navigate('/');
@@ -254,8 +270,13 @@ export default function AlbumView() {
                  <ArrowLeft className="w-5 h-5" />
                </Link>
                <span className="text-xs font-black tracking-widest text-green-700 uppercase">
-                 Olá, {user?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || 'Colecionador'}
+                 {album?.name || 'Álbum'}
                </span>
+               {ownerName && (
+                 <span className="text-xs font-bold text-green-600/80 bg-green-50 px-2 py-0.5 rounded-full">
+                   de {ownerName}
+                 </span>
+               )}
                <button 
                  onClick={() => setShowTutorial(true)}
                  className="p-1 text-yellow-600 hover:bg-yellow-100 rounded-full transition-colors"

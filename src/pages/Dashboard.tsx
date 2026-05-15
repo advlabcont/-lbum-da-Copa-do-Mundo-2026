@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, orderBy, limit, getDoc } from 'firebase/firestore';
 import { Link, useNavigate } from 'react-router-dom';
 import { PlusCircle, BookOpen, Users, Trash2, Megaphone, ChevronRight } from 'lucide-react';
 import { getTotalStickersCount, ALBUM_SECTIONS } from '../lib/stickers';
@@ -25,11 +25,47 @@ interface Announcement {
 export default function Dashboard() {
   const { user } = useAuth();
   const [albums, setAlbums] = useState<Album[]>([]);
+  const [ownerNames, setOwnerNames] = useState<Record<string, string>>({});
+  const fetchedOwnerIds = React.useRef<Set<string>>(new Set());
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [newAlbumName, setNewAlbumName] = useState('');
   const [isCreating, setIsCreating] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!user) return;
+
+    // Fetch owner names for shared albums
+    const fetchOwnerNames = async () => {
+      const missingOwnerIds = albums
+        .filter(a => a.ownerId !== user.uid)
+        .map(a => a.ownerId)
+        .filter(id => !fetchedOwnerIds.current.has(id));
+        
+      if (missingOwnerIds.length === 0) return;
+
+      missingOwnerIds.forEach(id => fetchedOwnerIds.current.add(id));
+
+      const newNames: Record<string, string> = {};
+      for (const id of missingOwnerIds) {
+        try {
+          const docRef = doc(db, 'users', id);
+          const snap = await getDoc(docRef);
+          if (snap.exists()) {
+             newNames[id] = snap.data().displayName || 'Colecionador';
+          } else {
+             newNames[id] = 'Colecionador';
+          }
+        } catch (error) {
+          console.error("Error fetching owner name", error);
+        }
+      }
+      setOwnerNames(prev => ({ ...prev, ...newNames }));
+    };
+
+    fetchOwnerNames();
+  }, [albums, user]);
 
   useEffect(() => {
     if (!user) return;
@@ -183,36 +219,38 @@ export default function Dashboard() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {albums.map((album) => {
-          // Calculate progress
-          const totalStickersCount = getTotalStickersCount();
-          const uniqueCollected = Object.entries(album.stickers || {}).filter(([id, amount]) => {
-            const sectionId = id.split('-')[0];
-            const section = ALBUM_SECTIONS.find(s => s.id === sectionId);
-            return (amount as number) > 0 && section && !section.excludeFromTotal;
-          }).length;
-          const pct = Math.round((uniqueCollected / totalStickersCount) * 100) || 0;
-          
-          return (
-          <Link
-            key={album.id}
-            to={`/album/${album.id}`}
-            className="block bg-white rounded-2xl border border-yellow-300 shadow-sm hover:shadow-lg hover:border-yellow-400 hover:-translate-y-1 transition-all overflow-hidden relative group"
-          >
-            <div className="h-2 bg-yellow-100 w-full absolute top-0 left-0">
-               <div className="h-full bg-green-700 transition-all duration-1000" style={{ width: `${pct}%` }}></div>
-            </div>
+      {/* Meus Álbuns Section */}
+      <div className="mb-4">
+        <h2 className="text-xl font-bold text-gray-800 mb-4">Meus Álbuns</h2>
+        <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {albums.filter(a => a.ownerId === user?.uid).map((album) => {
+            // Calculate progress
+            const totalStickersCount = getTotalStickersCount();
+            const uniqueCollected = Object.entries(album.stickers || {}).filter(([id, amount]) => {
+              const sectionId = id.split('-')[0];
+              const section = ALBUM_SECTIONS.find(s => s.id === sectionId);
+              return (amount as number) > 0 && section && !section.excludeFromTotal;
+            }).length;
+            const pct = Math.round((uniqueCollected / totalStickersCount) * 100) || 0;
             
-            <div className="p-6 pt-8">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center space-x-2 text-green-800">
-                      <BookOpen className="w-5 h-5 flex-shrink-0" />
-                      <h3 className="font-bold text-xl leading-none truncate text-green-900">{album.name}</h3>
-                    </div>
-                    {album.ownerId === user?.uid && (
+            return (
+            <Link
+              key={album.id}
+              to={`/album/${album.id}`}
+              className="block bg-white rounded-2xl border border-yellow-300 shadow-sm hover:shadow-lg hover:border-yellow-400 hover:-translate-y-1 transition-all overflow-hidden relative group"
+            >
+              <div className="h-2 bg-yellow-100 w-full absolute top-0 left-0">
+                 <div className="h-full bg-green-700 transition-all duration-1000" style={{ width: `${pct}%` }}></div>
+              </div>
+              
+              <div className="p-6 pt-8">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center justify-between mb-2">
+                      <div className="flex items-center space-x-2 text-green-800">
+                        <BookOpen className="w-5 h-5 flex-shrink-0" />
+                        <h3 className="font-bold text-xl leading-none truncate text-green-900">{album.name}</h3>
+                      </div>
                       <button
                         onClick={(e) => handleDeleteAlbum(e, album.id)}
                         className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
@@ -220,53 +258,110 @@ export default function Dashboard() {
                       >
                         <Trash2 className="w-4 h-4" />
                       </button>
-                    )}
-                  </div>
-                  
-                  <div className="mt-4 flex items-center justify-between text-sm">
-                    <div className="text-gray-500">
-                      <span className="font-black text-gray-800">{uniqueCollected}</span> de {totalStickersCount}
                     </div>
-                    <div className="font-bold text-green-700">
-                      {pct}%
+                    
+                    <div className="mt-4 flex items-center justify-between text-sm">
+                      <div className="text-gray-500">
+                        <span className="font-black text-gray-800">{uniqueCollected}</span> de {totalStickersCount}
+                      </div>
+                      <div className="font-bold text-green-700">
+                        {pct}%
+                      </div>
                     </div>
                   </div>
                 </div>
+                
+                {album.sharedWith && album.sharedWith.length > 0 && (
+                  <div className="mt-4 flex items-center text-xs font-bold text-green-900 bg-yellow-400 px-3 py-1.5 rounded-full w-fit">
+                    <Users className="w-3.5 h-3.5 mr-1.5" />
+                    Compartilhado
+                  </div>
+                )}
               </div>
-              
-              {album.sharedWith && album.sharedWith.length > 0 && (
-                <div className="mt-4 flex items-center text-xs font-bold text-green-900 bg-yellow-400 px-3 py-1.5 rounded-full w-fit">
-                  <Users className="w-3.5 h-3.5 mr-1.5" />
-                  Compartilhado
-                </div>
-              )}
-            </div>
-          </Link>
-        )})}
+            </Link>
+          )})}
 
-        <div className="bg-white rounded-2xl border-2 border-dashed border-yellow-300 p-6 flex flex-col justify-center hover:bg-yellow-50 transition-colors">
-          <form onSubmit={handleCreateAlbum} className="flex flex-col space-y-4 w-full">
-            <h3 className="font-bold text-green-900 leading-none mb-1">Novo Álbum</h3>
-            <input
-              type="text"
-              value={newAlbumName}
-              onChange={(e) => setNewAlbumName(e.target.value)}
-              placeholder="Ex: Álbum Oficial Copa 26"
-              className="w-full h-12 px-4 border border-gray-300 rounded-lg text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-green-700 focus:border-green-700 touch-manipulation"
-              disabled={isCreating}
-              required
-            />
-            <button
-              type="submit"
-              disabled={isCreating || !newAlbumName.trim()}
-              className="flex items-center justify-center space-x-2 w-full min-h-[48px] px-4 py-3 bg-yellow-400 hover:bg-yellow-500 text-green-900 rounded-lg transition-colors disabled:opacity-50 text-base font-bold touch-manipulation"
-            >
-              <PlusCircle className="w-5 h-5 flex-shrink-0" />
-              <span>Criar Álbum</span>
-            </button>
-          </form>
+          <div className="bg-white rounded-2xl border-2 border-dashed border-yellow-300 p-6 flex flex-col justify-center hover:bg-yellow-50 transition-colors">
+            <form onSubmit={handleCreateAlbum} className="flex flex-col space-y-4 w-full">
+              <h3 className="font-bold text-green-900 leading-none mb-1">Novo Álbum</h3>
+              <input
+                type="text"
+                value={newAlbumName}
+                onChange={(e) => setNewAlbumName(e.target.value)}
+                placeholder="Ex: Álbum Oficial Copa 26"
+                className="w-full h-12 px-4 border border-gray-300 rounded-lg text-base shadow-sm focus:outline-none focus:ring-2 focus:ring-green-700 focus:border-green-700 touch-manipulation"
+                disabled={isCreating}
+                required
+              />
+              <button
+                type="submit"
+                disabled={isCreating || !newAlbumName.trim()}
+                className="flex items-center justify-center space-x-2 w-full min-h-[48px] px-4 py-3 bg-yellow-400 hover:bg-yellow-500 text-green-900 rounded-lg transition-colors disabled:opacity-50 text-base font-bold touch-manipulation"
+              >
+                <PlusCircle className="w-5 h-5 flex-shrink-0" />
+                <span>Criar Álbum</span>
+              </button>
+            </form>
+          </div>
         </div>
       </div>
+
+      {/* Compartilhados Comigo Section */}
+      {albums.filter(a => a.ownerId !== user?.uid).length > 0 && (
+        <div className="mt-12 mb-4">
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Compartilhados Comigo</h2>
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+            {albums.filter(a => a.ownerId !== user?.uid).map((album) => {
+              // Calculate progress
+              const totalStickersCount = getTotalStickersCount();
+              const uniqueCollected = Object.entries(album.stickers || {}).filter(([id, amount]) => {
+                const sectionId = id.split('-')[0];
+                const section = ALBUM_SECTIONS.find(s => s.id === sectionId);
+                return (amount as number) > 0 && section && !section.excludeFromTotal;
+              }).length;
+              const pct = Math.round((uniqueCollected / totalStickersCount) * 100) || 0;
+              
+              return (
+              <Link
+                key={album.id}
+                to={`/album/${album.id}`}
+                className="block bg-white rounded-2xl border border-yellow-300 shadow-sm hover:shadow-lg hover:border-yellow-400 hover:-translate-y-1 transition-all overflow-hidden relative group"
+              >
+                <div className="h-2 bg-yellow-100 w-full absolute top-0 left-0">
+                   <div className="h-full bg-green-700 transition-all duration-1000" style={{ width: `${pct}%` }}></div>
+                </div>
+                
+                <div className="p-6 pt-8">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center space-x-2 text-green-800">
+                          <Users className="w-5 h-5 flex-shrink-0" />
+                          <div className="flex flex-col">
+                            <h3 className="font-bold text-xl leading-none truncate text-green-900">{album.name}</h3>
+                            {ownerNames[album.ownerId] && (
+                              <span className="text-xs text-green-700/80 font-medium mt-1">de {ownerNames[album.ownerId]}</span>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-4 flex items-center justify-between text-sm">
+                        <div className="text-gray-500">
+                          <span className="font-black text-gray-800">{uniqueCollected}</span> de {totalStickersCount}
+                        </div>
+                        <div className="font-bold text-green-700">
+                          {pct}%
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </Link>
+            )})}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
