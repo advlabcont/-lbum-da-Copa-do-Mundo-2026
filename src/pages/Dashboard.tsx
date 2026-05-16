@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, orderBy, limit, getDoc } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, orderBy, limit, getDoc, or } from 'firebase/firestore';
 import { Link, useNavigate } from 'react-router-dom';
 import { PlusCircle, BookOpen, Users, Trash2, Megaphone, ChevronRight } from 'lucide-react';
 import { getTotalStickersCount, ALBUM_SECTIONS } from '../lib/stickers';
@@ -84,53 +84,28 @@ export default function Dashboard() {
       // Not throwing a UI error for announcements if it fails (e.g. index building)
     });
 
-    let albums1: Album[] = [];
-    let albums2: Album[] = [];
-    let loading1 = true;
-    let loading2 = true;
-
-    const updateMergedAlbums = () => {
-      const map = new Map<string, Album>();
-      albums1.forEach(a => map.set(a.id, a));
-      albums2.forEach(a => map.set(a.id, a));
-      const merged = Array.from(map.values());
-      console.log(`Merged albums for ${user.uid}:`, merged.length, merged.map(a => a.name));
-      setAlbums(merged);
-      
-      if (!loading1 && !loading2) {
-        setLoading(false);
-      }
-    };
-
     try {
-      const q1 = query(collection(db, 'albums'), where('ownerId', '==', user.uid));
-      const q2 = query(collection(db, 'albums'), where('sharedWith', 'array-contains', user.uid));
+      const q = query(
+        collection(db, 'albums'), 
+        or(
+          where('ownerId', '==', user.uid),
+          where('sharedWith', 'array-contains', user.uid)
+        )
+      );
 
-      const unsubscribe1 = onSnapshot(q1, (snapshot) => {
-        albums1 = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Album));
-        loading1 = false;
-        updateMergedAlbums();
+      const unsubscribe = onSnapshot(q, (snapshot) => {
+        const fetchedAlbums = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Album));
+        console.log(`Fetched ${fetchedAlbums.length} albums for ${user.uid}`);
+        setAlbums(fetchedAlbums);
+        setLoading(false);
       }, (error) => {
-        console.error("Q1 error:", error);
-        loading1 = false;
-        updateMergedAlbums();
-        handleFirestoreError(error, OperationType.LIST, 'albums-owner');
-      });
-
-      const unsubscribe2 = onSnapshot(q2, (snapshot) => {
-        albums2 = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Album));
-        loading2 = false;
-        updateMergedAlbums();
-      }, (error) => {
-        console.error("Q2 error:", error);
-        loading2 = false;
-        updateMergedAlbums();
-        handleFirestoreError(error, OperationType.LIST, 'albums-shared');
+        console.error("Albums fetch error:", error);
+        setLoading(false);
+        handleFirestoreError(error, OperationType.LIST, 'albums');
       });
 
       return () => {
-        unsubscribe1();
-        unsubscribe2();
+        unsubscribe();
         unsubscribeAnn();
       };
     } catch (error) {
@@ -180,6 +155,29 @@ export default function Dashboard() {
     <div>
       <div className="flex items-center justify-between mb-6 md:mb-8">
         <h1 className="text-[clamp(1.5rem,4vw,2.25rem)] font-black text-gray-900 tracking-tight leading-tight">Meus Álbuns</h1>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4 mb-8">
+        <div className="bg-white p-4 rounded-2xl border border-yellow-200 shadow-sm flex flex-col items-center justify-center text-center">
+          <BookOpen className="w-6 h-6 text-green-700 mb-2" />
+          <span className="text-2xl font-black text-gray-900">{albums.filter(a => a.ownerId === user?.uid).length}</span>
+          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Meus Álbuns</span>
+        </div>
+        <div className="bg-white p-4 rounded-2xl border border-yellow-200 shadow-sm flex flex-col items-center justify-center text-center">
+          <Users className="w-6 h-6 text-green-700 mb-2" />
+          <span className="text-2xl font-black text-gray-900">{albums.filter(a => a.ownerId !== user?.uid).length}</span>
+          <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Compartilhados</span>
+        </div>
+      </div>
+
+      <div className="mb-8 bg-blue-50 border border-blue-100 p-4 rounded-2xl flex items-start gap-4">
+        <div className="p-2 bg-blue-100 rounded-xl text-blue-700">
+           <Users className="w-5 h-5" />
+        </div>
+        <div className="text-sm text-blue-900">
+          <p className="font-bold">Dica: Álbuns Compartilhados</p>
+          <p className="opacity-80">Álbuns que outros colecionadores compartilharem com você aparecerão automaticamente nesta página, na seção "Compartilhados Comigo".</p>
+        </div>
       </div>
 
       {announcements.length > 0 && (

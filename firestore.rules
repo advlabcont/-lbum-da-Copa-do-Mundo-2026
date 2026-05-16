@@ -37,9 +37,9 @@ service cloud.firestore {
     }
 
     function isValidAlbumUpdate(data) {
-      return (!('sharedWith' in data) || (data.sharedWith is list && data.sharedWith.size() <= 20)) &&
-             data.name is string && data.name.size() <= 100 &&
-             data.stickers is map;
+      return (!('sharedWith' in data) || data.sharedWith == null || (data.sharedWith is list && data.sharedWith.size() <= 20)) &&
+             (!('name' in data) || (data.name is string && data.name.size() <= 100)) &&
+             (!('stickers' in data) || (data.stickers is map));
     }
 
     function isValidTradeCreate(data) {
@@ -62,19 +62,24 @@ service cloud.firestore {
 
     match /albums/{albumId} {
       allow get: if isAuthenticated() && isValidId(albumId) &&
-                  (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.sharedWith);
+                  (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.get('sharedWith', []));
                   
       allow list: if isAuthenticated() &&
-                  (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.sharedWith);
+                  (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.get('sharedWith', []));
       
       allow create: if isAuthenticated() && isValidId(albumId) &&
                     isValidAlbumCreate(incoming());
       
       allow update: if isAuthenticated() && isValidId(albumId) &&
-                    (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.sharedWith) &&
-                    incoming().diff(resource.data).affectedKeys().hasOnly(['stickers', 'sharedWith', 'name']) &&
+                    (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.get('sharedWith', [])) &&
                     isValidAlbumUpdate(incoming()) &&
-                    incoming().ownerId == resource.data.ownerId;
+                    incoming().ownerId == resource.data.ownerId &&
+                    (
+                      // If owner: can change anything allowed in isValidAlbumUpdate
+                      (resource.data.ownerId == request.auth.uid && incoming().diff(resource.data).affectedKeys().hasOnly(['stickers', 'sharedWith', 'name'])) ||
+                      // If guest: can ONLY change stickers
+                      (request.auth.uid in resource.data.get('sharedWith', []) && incoming().diff(resource.data).affectedKeys().hasOnly(['stickers']))
+                    );
                     
       allow delete: if isAuthenticated() && isValidId(albumId) && resource.data.ownerId == request.auth.uid;
     }

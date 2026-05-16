@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { doc, onSnapshot, updateDoc, collection, query, where, getDocs, arrayUnion, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, collection, query, where, getDocs, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
 import { ALBUM_SECTIONS, AlbumSection, generateStickerIdsForSection, getTotalStickersCount, isStandardSticker, getExtraStickersCount, getAllStickerIds } from '../lib/stickers';
 import { ArrowLeft, Users, UserPlus, Minus, Plus, Share2, Download, Search, HelpCircle } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -24,6 +24,8 @@ export default function AlbumView() {
   const navigate = useNavigate();
   const [album, setAlbum] = useState<Album | null>(null);
   const [ownerName, setOwnerName] = useState<string | null>(null);
+  const [sharedUsers, setSharedUsers] = useState<Record<string, string>>({});
+  const [loadingUsers, setLoadingUsers] = useState(false);
   const [loading, setLoading] = useState(true);
   const [shareEmail, setShareEmail] = useState('');
   const [shareMessage, setShareMessage] = useState({ type: '', text: '' });
@@ -56,7 +58,12 @@ export default function AlbumView() {
     const docRef = doc(db, 'albums', albumId);
     const unsubscribe = onSnapshot(docRef, async (docSnap) => {
       if (docSnap.exists()) {
-        const albumData = { id: docSnap.id, ...docSnap.data() } as Album;
+        const data = docSnap.data();
+        const albumData = { 
+          id: docSnap.id, 
+          ...data,
+          sharedWith: data.sharedWith || []
+        } as Album;
         setAlbum(albumData);
         
         // Fetch owner name if not current user
@@ -78,11 +85,50 @@ export default function AlbumView() {
       }
       setLoading(false);
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, `albums/${albumId}`);
+      if (error.code === 'permission-denied') {
+        console.warn("Acesso negado ao álbum. Voltando para o painel.");
+        navigate('/');
+      } else {
+        handleFirestoreError(error, OperationType.GET, `albums/${albumId}`);
+      }
     });
 
     return unsubscribe;
   }, [user, albumId, navigate]);
+
+  useEffect(() => {
+    const fetchSharedUserNames = async () => {
+      if (!album?.sharedWith || album.sharedWith.length === 0) {
+        setSharedUsers({});
+        return;
+      }
+
+      setLoadingUsers(true);
+      const newNames: Record<string, string> = { ...sharedUsers };
+      let changed = false;
+
+      for (const uid of album.sharedWith) {
+        if (!newNames[uid]) {
+          try {
+            const userSnap = await getDoc(doc(db, 'users', uid));
+            if (userSnap.exists()) {
+              newNames[uid] = userSnap.data().displayName || userSnap.data().email || 'Visitante';
+              changed = true;
+            }
+          } catch (e) {
+            console.error("Error fetching guest name", e);
+          }
+        }
+      }
+
+      if (changed) {
+        setSharedUsers(newNames);
+      }
+      setLoadingUsers(false);
+    };
+
+    fetchSharedUserNames();
+  }, [album?.sharedWith]);
 
   const updateSticker = async (stickerId: string, delta: number) => {
     if (!album || !albumId) return;
@@ -148,6 +194,23 @@ export default function AlbumView() {
       handleFirestoreError(error, OperationType.UPDATE, `albums/${albumId}`);
     } finally {
       setIsSharing(false);
+    }
+  };
+
+  const handleUnshare = async (uid: string) => {
+    if (!album || !albumId || !isOwner) return;
+
+    if (!confirm(`Deseja realmente remover o acesso de ${sharedUsers[uid] || 'este usuário'}?`)) {
+      return;
+    }
+
+    try {
+      const docRef = doc(db, 'albums', albumId);
+      await updateDoc(docRef, {
+        sharedWith: arrayRemove(uid)
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `albums/${albumId}`);
     }
   };
 
@@ -520,16 +583,18 @@ export default function AlbumView() {
         )}
       </div>
 
-      {isOwner && (
-        <div className="bg-white p-6 md:p-8 flex flex-col items-center justify-center rounded-2xl border border-yellow-300 shadow-sm max-w-xl mx-auto w-full mt-4">
-          <h3 className="text-xl font-bold text-green-900 flex items-center mb-4">
+      {isOwner ? (
+        <div className="bg-white p-6 md:p-8 flex flex-col rounded-2xl border border-yellow-300 shadow-sm max-w-xl mx-auto w-full mt-4">
+          <h3 className="text-xl font-bold text-green-900 flex items-center mb-1">
             <Share2 className="w-5 h-5 mr-2" />
-            Compartilhar Álbum
+            Gerenciar Acesso
           </h3>
-          <p className="text-sm text-gray-500 text-center mb-6">
-            Convide um amigo para ver suas repetidas e controlar as figurinhas que faltam junto com você.
+          <p className="text-sm text-gray-500 mb-6">
+            Convide colecionadores para verem suas repetidas e ajudarem a marcar o que falta. 
+            <span className="block mt-1 font-bold text-green-700">O álbum aparecerá automaticamente no Painel deles.</span>
           </p>
-          <form onSubmit={handleShare} className="flex flex-col sm:flex-row w-full gap-3">
+
+          <form onSubmit={handleShare} className="flex flex-col sm:flex-row w-full gap-3 mb-8">
             <input
               type="email"
               placeholder="Email do colecionador(a)"
@@ -547,14 +612,53 @@ export default function AlbumView() {
               Convidar
             </button>
           </form>
+
           {shareMessage.text && (
-            <p className={`mt-4 text-sm font-bold ${
-              shareMessage.type === 'error' ? 'text-red-600' :
-              shareMessage.type === 'success' ? 'text-green-600' : 'text-blue-600'
+            <div className={`mb-6 p-3 rounded-lg text-sm font-bold ${
+              shareMessage.type === 'error' ? 'bg-red-50 text-red-600' :
+              shareMessage.type === 'success' ? 'bg-green-50 text-green-600' : 'bg-blue-50 text-blue-600'
             }`}>
               {shareMessage.text}
-            </p>
+            </div>
           )}
+
+          <div className="space-y-3">
+             <h4 className="text-xs font-black uppercase tracking-widest text-gray-400">Colecionadores com Acesso</h4>
+             {album.sharedWith?.length === 0 ? (
+               <p className="text-sm text-gray-400 italic">Ninguém convidado ainda.</p>
+             ) : (
+               <div className="divide-y divide-gray-100">
+                 {album.sharedWith?.map(uid => (
+                   <div key={uid} className="py-3 flex items-center justify-between">
+                     <div className="flex items-center gap-3">
+                       <div className="w-8 h-8 rounded-full bg-green-100 flex items-center justify-center text-green-700 text-xs font-black">
+                         {(sharedUsers[uid]?.[0] || '?').toUpperCase()}
+                       </div>
+                       <span className="text-sm font-bold text-gray-700">{sharedUsers[uid] || 'Carregando...'}</span>
+                     </div>
+                     <button
+                       onClick={() => handleUnshare(uid)}
+                       className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
+                       title="Remover Acesso"
+                     >
+                       <Minus className="w-4 h-4" />
+                     </button>
+                   </div>
+                 ))}
+               </div>
+             )}
+          </div>
+        </div>
+      ) : (
+        <div className="bg-white p-6 md:p-8 flex flex-col items-center justify-center rounded-2xl border border-yellow-300 shadow-sm max-w-xl mx-auto w-full mt-4">
+           <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mb-4">
+             <Users className="w-6 h-6 text-green-700" />
+           </div>
+           <h3 className="text-xl font-bold text-green-900 mb-2">Álbum Compartilhado</h3>
+           <p className="text-sm text-gray-500 text-center">
+             Você está visualizando o álbum de <span className="font-bold text-green-700">{ownerName || 'outro colecionador'}</span>.
+             Você pode ajudar a marcar as figurinhas, e as alterações serão salvas para ambos.
+           </p>
         </div>
       )}
 
