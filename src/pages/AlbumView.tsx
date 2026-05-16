@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { doc, onSnapshot, updateDoc, collection, query, where, getDocs, arrayUnion, arrayRemove, getDoc } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, collection, query, where, getDocs, arrayUnion, arrayRemove, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { ALBUM_SECTIONS, AlbumSection, generateStickerIdsForSection, getTotalStickersCount, isStandardSticker, getExtraStickersCount, getAllStickerIds } from '../lib/stickers';
 import { ArrowLeft, Users, UserPlus, Minus, Plus, Share2, Download, Search, HelpCircle } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -185,6 +185,25 @@ export default function AlbumView() {
       await updateDoc(docRef, {
         sharedWith: arrayUnion(friendId)
       });
+
+      // Send notification
+      try {
+        await addDoc(collection(db, 'notifications'), {
+          toUserId: friendId,
+          fromUserId: user.uid,
+          fromUserName: user.displayName || user.email?.split('@')[0] || 'Um colecionador',
+          type: 'album_shared',
+          albumId: albumId,
+          albumName: album.name,
+          read: false,
+          createdAt: serverTimestamp()
+        });
+        console.log(`Notification sent to ${friendId} for album ${albumId}`);
+      } catch (notifError) {
+        console.error("Error sending notification:", notifError);
+        // We don't fail the whole share if notification fails, 
+        // but it's good to know.
+      }
 
       setShareMessage({ type: 'success', text: `Álbum compartilhado com ${friendName}!` });
       setShareEmail('');

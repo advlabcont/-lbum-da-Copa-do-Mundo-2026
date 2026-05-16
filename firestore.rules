@@ -51,6 +51,15 @@ service cloud.firestore {
              data.status == 'open';
     }
 
+    function isValidNotification(data) {
+      return data.keys().hasAll(['toUserId', 'fromUserId', 'type', 'albumId', 'read', 'createdAt']) &&
+             data.toUserId is string && data.fromUserId is string &&
+             data.type == 'album_shared' &&
+             data.albumId is string &&
+             data.read is bool &&
+             data.createdAt == request.time;
+    }
+
     match /users/{userId} {
       allow get: if isAuthenticated() && isValidId(userId);
       allow list: if isAuthenticated(); 
@@ -58,6 +67,15 @@ service cloud.firestore {
       allow update: if isAuthenticated() && isValidId(userId) && request.auth.uid == userId &&
                     incoming().diff(resource.data).affectedKeys().hasOnly(['displayName', 'email']) &&
                     isValidUser(incoming());
+    }
+
+    match /notifications/{notificationId} {
+      allow get: if isAuthenticated() && resource.data.toUserId == request.auth.uid;
+      allow list: if isAuthenticated() && resource.data.toUserId == request.auth.uid;
+      allow create: if isAuthenticated() && incoming().fromUserId == request.auth.uid && isValidNotification(incoming());
+      allow update: if isAuthenticated() && resource.data.toUserId == request.auth.uid && 
+                    incoming().diff(resource.data).affectedKeys().hasOnly(['read']);
+      allow delete: if isAuthenticated() && resource.data.toUserId == request.auth.uid;
     }
 
     match /albums/{albumId} {

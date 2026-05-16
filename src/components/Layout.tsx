@@ -1,6 +1,7 @@
 import { Outlet, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
 import { LogOut, Book } from 'lucide-react';
+import { NotificationCenter } from './NotificationCenter';
 
 export default function Layout() {
   const { user, logout } = useAuth();
@@ -30,6 +31,9 @@ export default function Layout() {
             </div>
             
             <div className="flex items-center space-x-2 sm:space-x-4">
+              <div className="mr-2">
+                <NotificationCenter />
+              </div>
               <span className="text-sm text-green-100 hidden md:inline-block truncate max-w-[150px] lg:max-w-xs">
                 Olá, {user?.displayName}
               </span>

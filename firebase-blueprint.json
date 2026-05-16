@@ -50,6 +50,22 @@
         "responderId": { "type": "string" }
       },
       "required": ["creatorId", "creatorStickersOffered", "creatorStickersRequested", "status"]
+    },
+    "Notification": {
+      "title": "Notification",
+      "description": "User notifications (e.g. album sharing).",
+      "type": "object",
+      "properties": {
+        "toUserId": { "type": "string" },
+        "fromUserId": { "type": "string" },
+        "fromUserName": { "type": "string" },
+        "type": { "type": "string", "enum": ["album_shared"] },
+        "albumId": { "type": "string" },
+        "albumName": { "type": "string" },
+        "read": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["toUserId", "fromUserId", "type", "albumId", "read", "createdAt"]
     }
   },
   "firestore": {
@@ -64,6 +80,10 @@
     "trades/{tradeId}": {
       "schema": { "$ref": "#/entities/Trade" },
       "description": "Open or completed trades in the system."
+    },
+    "notifications/{notificationId}": {
+      "schema": { "$ref": "#/entities/Notification" },
+      "description": "User notifications for events like album sharing."
     },
     "announcements/{announcementId}": {
       "schema": {

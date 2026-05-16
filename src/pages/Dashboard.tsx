@@ -107,7 +107,8 @@ export default function Dashboard() {
       const unsubscribe1 = onSnapshot(q1, (snapshot) => {
         albums1 = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Album));
         loading1 = false;
-        console.log(`[Dashboard] User ${user.email} (${user.uid}) - Owned albums: ${albums1.length}`);
+        console.log(`[Dashboard Debug] User: ${user.email}, UID: ${user.uid}`);
+        console.log(`[Dashboard Debug] Owned albums found: ${albums1.length}`);
         updateMergedAlbums();
       }, (error) => {
         console.error("[Dashboard] Owned albums fetch error:", error);
@@ -118,7 +119,10 @@ export default function Dashboard() {
       const unsubscribe2 = onSnapshot(q2, (snapshot) => {
         albums2 = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Album));
         loading2 = false;
-        console.log(`[Dashboard] User ${user.email} (${user.uid}) - Shared albums: ${albums2.length}`);
+        console.log(`[Dashboard Debug] Shared albums found: ${albums2.length}`);
+        if (albums2.length > 0) {
+           console.log(`[Dashboard Debug] Shared album IDs: ${albums2.map(a => a.id).join(', ')}`);
+        }
         updateMergedAlbums();
       }, (error) => {
         console.error("[Dashboard] Shared albums fetch error:", error);
@@ -244,6 +248,15 @@ export default function Dashboard() {
           </div>
         </div>
       )}
+
+      {/* Sharing hint / status warning */}
+      <div className="mb-8 p-6 bg-yellow-50 border-2 border-yellow-200 rounded-3xl text-sm">
+        <h4 className="font-black text-yellow-800 uppercase tracking-widest text-xs mb-2">Central de Ajuda</h4>
+        <p className="text-green-900 leading-relaxed font-medium">
+          Se você recebeu um convite mas o álbum não aparece, verifique se o email convidado foi exatamente <span className="font-black underline">{user?.email}</span>. 
+          O compartilhamento agora gera uma notificação no sininho no topo da página!
+        </p>
+      </div>
 
       {/* Meus Álbuns Section */}
       <div className="mb-4">
@@ -393,6 +406,12 @@ export default function Dashboard() {
              <p className="text-[10px] text-gray-400 mt-2 uppercase tracking-tight">Quando alguém te convidar via email, o álbum aparecerá aqui.</p>
           </div>
         )}
+      </div>
+      {/* Debug Footer for support */}
+      <div className="mt-20 pt-8 border-t border-gray-100 pb-12">
+        <p className="text-[10px] text-gray-300 font-bold uppercase tracking-widest text-center">
+          ID de Conexão: {user?.uid} • v1.2.0
+        </p>
       </div>
     </div>
   );
