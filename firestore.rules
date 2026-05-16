@@ -62,23 +62,23 @@ service cloud.firestore {
 
     match /albums/{albumId} {
       allow get: if isAuthenticated() && isValidId(albumId) &&
-                  (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.sharedWith);
+                  (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.get('sharedWith', []));
                   
       allow list: if isAuthenticated() &&
-                  (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.sharedWith);
+                  (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.get('sharedWith', []));
       
       allow create: if isAuthenticated() && isValidId(albumId) &&
                     isValidAlbumCreate(incoming());
       
       allow update: if isAuthenticated() && isValidId(albumId) &&
-                    (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.sharedWith) &&
+                    (resource.data.ownerId == request.auth.uid || request.auth.uid in resource.data.get('sharedWith', [])) &&
                     isValidAlbumUpdate(incoming()) &&
                     incoming().ownerId == resource.data.ownerId &&
                     (
                       // If owner: can change anything allowed in isValidAlbumUpdate
                       (resource.data.ownerId == request.auth.uid && incoming().diff(resource.data).affectedKeys().hasOnly(['stickers', 'sharedWith', 'name'])) ||
                       // If guest: can ONLY change stickers
-                      (request.auth.uid in resource.data.sharedWith && incoming().diff(resource.data).affectedKeys().hasOnly(['stickers']))
+                      (request.auth.uid in resource.data.get('sharedWith', []) && incoming().diff(resource.data).affectedKeys().hasOnly(['stickers']))
                     );
                     
       allow delete: if isAuthenticated() && isValidId(albumId) && resource.data.ownerId == request.auth.uid;
