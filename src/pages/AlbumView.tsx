@@ -183,7 +183,8 @@ export default function AlbumView() {
 
       const docRef = doc(db, 'albums', albumId);
       await updateDoc(docRef, {
-        sharedWith: arrayUnion(friendId)
+        sharedWith: arrayUnion(friendId),
+        sharedEmails: arrayUnion(shareEmail.trim().toLowerCase())
       });
 
       // Send notification

@@ -11,6 +11,7 @@ interface Album {
   name: string;
   ownerId: string;
   sharedWith: string[];
+  sharedEmails?: string[];
   stickers: Record<string, number>;
 }
 
@@ -87,27 +88,46 @@ export default function Dashboard() {
     try {
       const q1 = query(collection(db, 'albums'), where('ownerId', '==', user.uid));
       const q2 = query(collection(db, 'albums'), where('sharedWith', 'array-contains', user.uid));
+      const q3 = query(collection(db, 'albums'), where('sharedEmails', 'array-contains', user.email?.toLowerCase()));
 
       let albums1: Album[] = [];
       let albums2: Album[] = [];
+      let albums3: Album[] = [];
       let loading1 = true;
       let loading2 = true;
+      let loading3 = true;
 
       const updateMergedAlbums = () => {
         const resultMap = new Map<string, Album>();
         albums1.forEach(a => resultMap.set(a.id, a));
         albums2.forEach(a => resultMap.set(a.id, a));
+        albums3.forEach(a => resultMap.set(a.id, a));
         const merged = Array.from(resultMap.values());
         setAlbums(merged);
-        if (!loading1 && !loading2) {
+        if (!loading1 && !loading2 && !loading3) {
           setLoading(false);
         }
+        
+        // Repair logic: if an album is found via email (albums3) but not in albums2 (UID matching),
+        // it means the UID lookup failed previously. Let's fix it.
+        albums3.forEach(async (album) => {
+          if (!album.sharedWith.includes(user.uid)) {
+             console.log(`[Dashboard Repair] Auto-adding UID ${user.uid} to album ${album.id} found via email ${user.email}`);
+             try {
+                const { arrayUnion, updateDoc } = await import('firebase/firestore');
+                await updateDoc(doc(db, 'albums', album.id), {
+                   sharedWith: arrayUnion(user.uid)
+                });
+             } catch (err) {
+                console.error("[Dashboard Repair] Failed to auto-repair access", err);
+             }
+          }
+        });
       };
 
       const unsubscribe1 = onSnapshot(q1, (snapshot) => {
         albums1 = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Album));
         loading1 = false;
-        console.log(`[Dashboard Debug] User: ${user.email}, UID: ${user.uid}`);
         console.log(`[Dashboard Debug] Owned albums found: ${albums1.length}`);
         updateMergedAlbums();
       }, (error) => {
@@ -119,20 +139,29 @@ export default function Dashboard() {
       const unsubscribe2 = onSnapshot(q2, (snapshot) => {
         albums2 = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Album));
         loading2 = false;
-        console.log(`[Dashboard Debug] Shared albums found: ${albums2.length}`);
-        if (albums2.length > 0) {
-           console.log(`[Dashboard Debug] Shared album IDs: ${albums2.map(a => a.id).join(', ')}`);
-        }
+        console.log(`[Dashboard Debug] Shared albums (UID) found: ${albums2.length}`);
         updateMergedAlbums();
       }, (error) => {
-        console.error("[Dashboard] Shared albums fetch error:", error);
+        console.error("[Dashboard] Shared albums (UID) fetch error:", error);
         loading2 = false;
+        updateMergedAlbums();
+      });
+
+      const unsubscribe3 = onSnapshot(q3, (snapshot) => {
+        albums3 = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Album));
+        loading3 = false;
+        console.log(`[Dashboard Debug] Shared albums (Email) found: ${albums3.length}`);
+        updateMergedAlbums();
+      }, (error) => {
+        console.error("[Dashboard] Shared albums (Email) fetch error:", error);
+        loading3 = false;
         updateMergedAlbums();
       });
 
       return () => {
         unsubscribe1();
         unsubscribe2();
+        unsubscribe3();
         unsubscribeAnn();
       };
     } catch (error) {
@@ -254,7 +283,7 @@ export default function Dashboard() {
         <h4 className="font-black text-yellow-800 uppercase tracking-widest text-xs mb-2">Central de Ajuda</h4>
         <p className="text-green-900 leading-relaxed font-medium">
           Se você recebeu um convite mas o álbum não aparece, verifique se o email convidado foi exatamente <span className="font-black underline">{user?.email}</span>. 
-          O compartilhamento agora gera uma notificação no sininho no topo da página!
+          Implementamos um sistema de <strong>auto-ajuste</strong>: basta o dono do álbum compartilhar novamente usando seu e-mail correto que o acesso será reparado automaticamente.
         </p>
       </div>
 
