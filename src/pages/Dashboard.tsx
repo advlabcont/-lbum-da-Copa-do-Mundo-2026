@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, orderBy, limit, getDoc, or } from 'firebase/firestore';
+import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, orderBy, limit, getDoc } from 'firebase/firestore';
 import { Link, useNavigate } from 'react-router-dom';
 import { PlusCircle, BookOpen, Users, Trash2, Megaphone, ChevronRight } from 'lucide-react';
 import { getTotalStickersCount, ALBUM_SECTIONS } from '../lib/stickers';
@@ -85,27 +85,50 @@ export default function Dashboard() {
     });
 
     try {
-      const q = query(
-        collection(db, 'albums'), 
-        or(
-          where('ownerId', '==', user.uid),
-          where('sharedWith', 'array-contains', user.uid)
-        )
-      );
+      const q1 = query(collection(db, 'albums'), where('ownerId', '==', user.uid));
+      const q2 = query(collection(db, 'albums'), where('sharedWith', 'array-contains', user.uid));
 
-      const unsubscribe = onSnapshot(q, (snapshot) => {
-        const fetchedAlbums = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Album));
-        console.log(`Fetched ${fetchedAlbums.length} albums for ${user.uid}`);
-        setAlbums(fetchedAlbums);
-        setLoading(false);
+      let albums1: Album[] = [];
+      let albums2: Album[] = [];
+      let loading1 = true;
+      let loading2 = true;
+
+      const updateMergedAlbums = () => {
+        const resultMap = new Map<string, Album>();
+        albums1.forEach(a => resultMap.set(a.id, a));
+        albums2.forEach(a => resultMap.set(a.id, a));
+        const merged = Array.from(resultMap.values());
+        setAlbums(merged);
+        if (!loading1 && !loading2) {
+          setLoading(false);
+        }
+      };
+
+      const unsubscribe1 = onSnapshot(q1, (snapshot) => {
+        albums1 = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Album));
+        loading1 = false;
+        console.log(`[Dashboard] User ${user.email} (${user.uid}) - Owned albums: ${albums1.length}`);
+        updateMergedAlbums();
       }, (error) => {
-        console.error("Albums fetch error:", error);
-        setLoading(false);
-        handleFirestoreError(error, OperationType.LIST, 'albums');
+        console.error("[Dashboard] Owned albums fetch error:", error);
+        loading1 = false;
+        updateMergedAlbums();
+      });
+
+      const unsubscribe2 = onSnapshot(q2, (snapshot) => {
+        albums2 = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Album));
+        loading2 = false;
+        console.log(`[Dashboard] User ${user.email} (${user.uid}) - Shared albums: ${albums2.length}`);
+        updateMergedAlbums();
+      }, (error) => {
+        console.error("[Dashboard] Shared albums fetch error:", error);
+        loading2 = false;
+        updateMergedAlbums();
       });
 
       return () => {
-        unsubscribe();
+        unsubscribe1();
+        unsubscribe2();
         unsubscribeAnn();
       };
     } catch (error) {
@@ -154,7 +177,12 @@ export default function Dashboard() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6 md:mb-8">
-        <h1 className="text-[clamp(1.5rem,4vw,2.25rem)] font-black text-gray-900 tracking-tight leading-tight">Meus Álbuns</h1>
+        <div className="flex flex-col">
+          <h1 className="text-[clamp(1.5rem,4vw,2.25rem)] font-black text-gray-900 tracking-tight leading-tight">Meus Álbuns</h1>
+          <p className="text-xs font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full w-fit mt-1">
+            Logado como: {user?.email}
+          </p>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-8">
@@ -305,9 +333,9 @@ export default function Dashboard() {
       </div>
 
       {/* Compartilhados Comigo Section */}
-      {albums.filter(a => a.ownerId !== user?.uid).length > 0 && (
-        <div className="mt-12 mb-4">
-          <h2 className="text-xl font-bold text-gray-800 mb-4">Compartilhados Comigo</h2>
+      <div className="mt-12 mb-4">
+        <h2 className="text-xl font-bold text-gray-800 mb-4">Compartilhados Comigo</h2>
+        {albums.filter(a => a.ownerId !== user?.uid).length > 0 ? (
           <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
             {albums.filter(a => a.ownerId !== user?.uid).map((album) => {
               // Calculate progress
@@ -358,8 +386,14 @@ export default function Dashboard() {
               </Link>
             )})}
           </div>
-        </div>
-      )}
+        ) : (
+          <div className="bg-white rounded-2xl border border-gray-200 p-8 text-center">
+            <Users className="w-8 h-8 text-gray-300 mx-auto mb-3" />
+             <p className="text-gray-500 text-sm">Nenhum álbum compartilhado com você ainda.</p>
+             <p className="text-[10px] text-gray-400 mt-2 uppercase tracking-tight">Quando alguém te convidar via email, o álbum aparecerá aqui.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
