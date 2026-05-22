@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Link, useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
-import { doc, onSnapshot, updateDoc, collection, query, where, getDocs, arrayUnion, arrayRemove, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, onSnapshot, updateDoc, collection, query, where, getDocs, arrayUnion, arrayRemove, getDoc, addDoc, serverTimestamp, deleteField } from 'firebase/firestore';
 import { ALBUM_SECTIONS, AlbumSection, generateStickerIdsForSection, getTotalStickersCount, isStandardSticker, getExtraStickersCount, getAllStickerIds } from '../lib/stickers';
 import { ArrowLeft, Users, UserPlus, Minus, Plus, Share2, Download, Search, HelpCircle } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
@@ -59,12 +59,54 @@ export default function AlbumView() {
     const unsubscribe = onSnapshot(docRef, async (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
+        
+        // Auto-migration for BPS & HIS to FWC stickers format
+        let stickersData = { ...(data.stickers || {}) };
+        let migrationNeeded = false;
+        const migrationUpdates: Record<string, any> = {};
+
+        Object.keys(stickersData).forEach(key => {
+          if (key.startsWith('BPS-')) {
+            const num = key.split('-')[1];
+            if (['5', '6', '7', '8'].includes(num)) {
+              const newKey = `FWC-${num}`;
+              const oldVal = stickersData[key];
+              stickersData[newKey] = Math.max(stickersData[newKey] || 0, oldVal);
+              delete stickersData[key];
+              
+              migrationNeeded = true;
+              migrationUpdates[`stickers.${key}`] = deleteField();
+              migrationUpdates[`stickers.${newKey}`] = stickersData[newKey];
+            }
+          } else if (key.startsWith('HIS-')) {
+            const num = key.split('-')[1];
+            const newKey = `FWC-${num}`;
+            const oldVal = stickersData[key];
+            stickersData[newKey] = Math.max(stickersData[newKey] || 0, oldVal);
+            delete stickersData[key];
+            
+            migrationNeeded = true;
+            migrationUpdates[`stickers.${key}`] = deleteField();
+            migrationUpdates[`stickers.${newKey}`] = stickersData[newKey];
+          }
+        });
+
         const albumData = { 
           id: docSnap.id, 
           ...data,
+          stickers: stickersData,
           sharedWith: data.sharedWith || []
         } as Album;
         setAlbum(albumData);
+        
+        if (migrationNeeded && albumData.ownerId === user.uid) {
+          console.log('[Migration] Auto-migrating old BPS/HIS stickers to FWC:', migrationUpdates);
+          try {
+            await updateDoc(docRef, migrationUpdates);
+          } catch (migrateErr) {
+            console.error('[Migration] Failed to save migrated stickers count', migrateErr);
+          }
+        }
         
         // Fetch owner name if not current user
         if (albumData.ownerId !== user.uid) {

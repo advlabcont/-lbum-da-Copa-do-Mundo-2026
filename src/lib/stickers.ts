@@ -9,9 +9,7 @@ export interface AlbumSection {
 
 // Mocking 48 teams for 2026 World Cup + Specials
 export const ALBUM_SECTIONS: AlbumSection[] = [
-  { id: 'FWC', name: 'Copa 2026', count: 5, group: 'Especiais', stickers: ['00', '1', '2', '3', '4'] },
-  { id: 'BPS', name: 'Bolas e Países Sede', count: 4, group: 'Especiais', stickers: ['5', '6', '7', '8'] },
-  { id: 'HIS', name: 'Histórias da Copa', count: 11, group: 'Especiais', stickers: ['9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19'] },
+  { id: 'FWC', name: 'Copa 2026', count: 20, group: 'Especiais', stickers: ['00', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19'] },
   { id: 'EXT', name: 'Extra', count: 4, group: 'Especiais', stickers: ['REGU', 'BRON', 'PRAT', 'OURO'], excludeFromTotal: true },
   { id: 'COC', name: 'Coca - Cola', count: 10, group: 'Especiais', excludeFromTotal: true },
 
@@ -113,7 +111,10 @@ export const getStandardStickerIds = () => {
 }
 
 export const isStandardSticker = (id: string) => {
-    const sectionId = id.split('-')[0];
+    let sectionId = id.split('-')[0];
+    if (sectionId === 'BPS' || sectionId === 'HIS') {
+        sectionId = 'FWC';
+    }
     const section = ALBUM_SECTIONS.find(s => s.id === sectionId);
     return section && !section.excludeFromTotal;
 }

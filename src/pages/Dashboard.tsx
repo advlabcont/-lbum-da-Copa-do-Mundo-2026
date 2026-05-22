@@ -4,7 +4,7 @@ import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { collection, query, where, onSnapshot, addDoc, deleteDoc, doc, orderBy, limit, getDoc } from 'firebase/firestore';
 import { Link, useNavigate } from 'react-router-dom';
 import { PlusCircle, BookOpen, Users, Trash2, Megaphone, ChevronRight } from 'lucide-react';
-import { getTotalStickersCount, ALBUM_SECTIONS } from '../lib/stickers';
+import { getTotalStickersCount, ALBUM_SECTIONS, isStandardSticker } from '../lib/stickers';
 
 interface Album {
   id: string;
@@ -28,6 +28,7 @@ export default function Dashboard() {
   const [albums, setAlbums] = useState<Album[]>([]);
   const [ownerNames, setOwnerNames] = useState<Record<string, string>>({});
   const fetchedOwnerIds = React.useRef<Set<string>>(new Set());
+  const repairedAlbumsRef = React.useRef<Set<string>>(new Set());
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [loading, setLoading] = useState(true);
   const [newAlbumName, setNewAlbumName] = useState('');
@@ -111,7 +112,8 @@ export default function Dashboard() {
         // Repair logic: if an album is found via email (albums3) but not in albums2 (UID matching),
         // it means the UID lookup failed previously. Let's fix it.
         albums3.forEach(async (album) => {
-          if (!album.sharedWith.includes(user.uid)) {
+          if (!album.sharedWith.includes(user.uid) && !repairedAlbumsRef.current.has(album.id)) {
+             repairedAlbumsRef.current.add(album.id);
              console.log(`[Dashboard Repair] Auto-adding UID ${user.uid} to album ${album.id} found via email ${user.email}`);
              try {
                 const { arrayUnion, updateDoc } = await import('firebase/firestore');
@@ -295,9 +297,7 @@ export default function Dashboard() {
             // Calculate progress
             const totalStickersCount = getTotalStickersCount();
             const uniqueCollected = Object.entries(album.stickers || {}).filter(([id, amount]) => {
-              const sectionId = id.split('-')[0];
-              const section = ALBUM_SECTIONS.find(s => s.id === sectionId);
-              return (amount as number) > 0 && section && !section.excludeFromTotal;
+              return (amount as number) > 0 && isStandardSticker(id);
             }).length;
             const pct = Math.round((uniqueCollected / totalStickersCount) * 100) || 0;
             
@@ -383,9 +383,7 @@ export default function Dashboard() {
               // Calculate progress
               const totalStickersCount = getTotalStickersCount();
               const uniqueCollected = Object.entries(album.stickers || {}).filter(([id, amount]) => {
-                const sectionId = id.split('-')[0];
-                const section = ALBUM_SECTIONS.find(s => s.id === sectionId);
-                return (amount as number) > 0 && section && !section.excludeFromTotal;
+                return (amount as number) > 0 && isStandardSticker(id);
               }).length;
               const pct = Math.round((uniqueCollected / totalStickersCount) * 100) || 0;
               
