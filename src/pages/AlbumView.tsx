@@ -350,9 +350,9 @@ export default function AlbumView() {
   let duplicates = 0;
   let totalCardsCount = 0;
 
-  let extraUniqueCollected = 0;
-  let extraDuplicates = 0;
-  let extraTotalCardsCount = 0;
+  // Track Coca-Cola specifically for its dedicated card,
+  // although it's already counted in the main (standard) totals
+  let cocaUniqueCollected = 0;
 
   Object.entries(album.stickers || {}).forEach(([id, amount]) => {
     const numAmount = amount as number;
@@ -363,19 +363,17 @@ export default function AlbumView() {
         if (numAmount > 1) {
           duplicates += (numAmount - 1);
         }
-      } else {
-        extraUniqueCollected++;
-        extraTotalCardsCount += numAmount;
-        if (numAmount > 1) {
-          extraDuplicates += (numAmount - 1);
-        }
+      }
+      
+      if (id.startsWith('COC-')) {
+        cocaUniqueCollected++;
       }
     }
   });
 
   const missingCount = totalStickersCount - uniqueCollected;
   const percentage = totalStickersCount > 0 ? (Math.round((uniqueCollected / totalStickersCount) * 100 * 10) / 10).toFixed(1) : "0.0";
-  const extraMax = getExtraStickersCount();
+  const cocaMax = ALBUM_SECTIONS.find(s => s.id === 'COC')?.count || 14;
 
   const chartData = [
     { name: 'Tenho', value: uniqueCollected, color: '#166534' }, // green-800
@@ -486,7 +484,7 @@ export default function AlbumView() {
                <div className="w-1.5 bg-yellow-400 flex-shrink-0"></div>
                <div className="p-4 flex-1 bg-white">
                   <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-1">Repetidas</p>
-                  <p className="text-3xl font-black text-yellow-600 leading-none">{duplicates + extraDuplicates}</p>
+                  <p className="text-3xl font-black text-yellow-600 leading-none">{duplicates}</p>
                   <p className="text-xs text-gray-500 mt-2 font-medium">pra trocar</p>
                </div>
             </div>
@@ -495,7 +493,7 @@ export default function AlbumView() {
                <div className="w-1.5 bg-amber-900 flex-shrink-0"></div>
                <div className="p-4 flex-1 bg-white">
                   <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-1 tracking-tighter">Especiais (Coca - Cola)</p>
-                  <p className="text-3xl font-black text-amber-900 leading-none">{extraUniqueCollected}<span className="text-lg text-amber-900/60 font-bold">/{extraMax}</span></p>
+                  <p className="text-3xl font-black text-amber-900 leading-none">{cocaUniqueCollected}<span className="text-lg text-amber-900/60 font-bold">/{cocaMax}</span></p>
                   <p className="text-xs text-gray-500 mt-2 font-medium">patrocinador oficial</p>
                </div>
             </div>
