@@ -10,8 +10,7 @@ export interface AlbumSection {
 // Mocking 48 teams for 2026 World Cup + Specials
 export const ALBUM_SECTIONS: AlbumSection[] = [
   { id: 'FWC', name: 'Copa 2026', count: 20, group: 'Especiais', stickers: ['00', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13', '14', '15', '16', '17', '18', '19'] },
-  { id: 'EXT', name: 'Extra', count: 4, group: 'Especiais', stickers: ['REGU', 'BRON', 'PRAT', 'OURO'], excludeFromTotal: true },
-  { id: 'COC', name: 'Coca - Cola', count: 10, group: 'Especiais', excludeFromTotal: true },
+  { id: 'COC', name: 'Coca - Cola', count: 14, group: 'Especiais', excludeFromTotal: true },
 
   // Grupo A
 

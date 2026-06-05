@@ -494,9 +494,9 @@ export default function AlbumView() {
             <div className="border border-gray-200 rounded-xl overflow-hidden shadow-sm flex items-stretch">
                <div className="w-1.5 bg-amber-900 flex-shrink-0"></div>
                <div className="p-4 flex-1 bg-white">
-                  <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-1 tracking-tighter">Especiais (Extra / Coca)</p>
+                  <p className="text-gray-500 text-[10px] font-bold uppercase tracking-widest mb-1 tracking-tighter">Especiais (Coca - Cola)</p>
                   <p className="text-3xl font-black text-amber-900 leading-none">{extraUniqueCollected}<span className="text-lg text-amber-900/60 font-bold">/{extraMax}</span></p>
-                  <p className="text-xs text-gray-500 mt-2 font-medium">patrocinador e lendas</p>
+                  <p className="text-xs text-gray-500 mt-2 font-medium">patrocinador oficial</p>
                </div>
             </div>
          </div>
