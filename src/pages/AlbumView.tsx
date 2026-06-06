@@ -4,7 +4,7 @@ import { useAuth } from '../lib/AuthContext';
 import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { doc, onSnapshot, updateDoc, collection, query, where, getDocs, arrayUnion, arrayRemove, getDoc, addDoc, serverTimestamp, deleteField } from 'firebase/firestore';
 import { ALBUM_SECTIONS, AlbumSection, generateStickerIdsForSection, getTotalStickersCount, isStandardSticker, getExtraStickersCount, getAllStickerIds } from '../lib/stickers';
-import { ArrowLeft, Users, UserPlus, Minus, Plus, Share2, Download, Search, HelpCircle } from 'lucide-react';
+import { ArrowLeft, Users, UserPlus, Minus, Plus, Share2, Download, Search, HelpCircle, MessageCircle, Copy, Check, X } from 'lucide-react';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip } from 'recharts';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -34,6 +34,8 @@ export default function AlbumView() {
   const [searchQuery, setSearchQuery] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'missing' | 'duplicates'>('all');
   const [showTutorial, setShowTutorial] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     // Check if user has seen tutorial for this album
@@ -375,6 +377,39 @@ export default function AlbumView() {
   const percentage = totalStickersCount > 0 ? (Math.round((uniqueCollected / totalStickersCount) * 100 * 10) / 10).toFixed(1) : "0.0";
   const cocaMax = ALBUM_SECTIONS.find(s => s.id === 'COC')?.count || 14;
 
+  const generateMissingReportText = () => {
+    if (!album) return '';
+    
+    const stickersData = album.stickers || {};
+    let text = `📋 *FIGURINHAS QUE PRECISO (${album.name.toUpperCase()})*\n\n`;
+    text += `Ainda faltam *${missingCount}* figurinhas para eu completar meu álbum! Se você tiver alguma destas para trocar ou me vender, me avisa! 👇\n\n`;
+    
+    let totalSections = 0;
+    ALBUM_SECTIONS.forEach((section) => {
+      const secIds = generateStickerIdsForSection(section);
+      const missing = secIds.filter(id => (stickersData[id] || 0) === 0);
+      if (missing.length > 0) {
+        const numbersList = missing.map(id => id.split('-')[1]).join(', ');
+        text += `• *${section.name}* (${section.id}): ${numbersList}\n`;
+        totalSections++;
+      }
+    });
+    
+    if (totalSections === 0) {
+      return `🏆 *${album.name.toUpperCase()}*\n\nJá completei todo o álbum! Não me falta nenhuma figurinha. 🎉`;
+    }
+    
+    text += `\nGerado pelo Copinha 2026. Vamos trocar! 🤝`;
+    return text;
+  };
+
+  const handleCopyText = () => {
+    const text = generateMissingReportText();
+    navigator.clipboard.writeText(text);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
   const chartData = [
     { name: 'Tenho', value: uniqueCollected, color: '#166534' }, // green-800
     { name: 'Falta', value: missingCount, color: '#e5e7eb' }, // gray-200
@@ -383,6 +418,78 @@ export default function AlbumView() {
   return (
     <div className="flex flex-col gap-8 pb-12 max-w-5xl mx-auto w-full">
       <TutorialModal isOpen={showTutorial} onClose={handleCloseTutorial} />
+      
+      {/* Modal de Compartilhamento no WhatsApp */}
+      {isShareModalOpen && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl border border-yellow-300 shadow-xl max-w-lg w-full overflow-hidden flex flex-col max-h-[95vh] animate-in fade-in zoom-in-95 duration-200">
+            {/* Header */}
+            <div className="p-5 border-b border-gray-100 flex items-center justify-between bg-yellow-50">
+              <div className="flex items-center gap-2">
+                <MessageCircle className="w-5 h-5 text-green-700" />
+                <h3 className="text-lg font-black text-green-900">Compartilhar Faltantes</h3>
+              </div>
+              <button 
+                onClick={() => setIsShareModalOpen(false)}
+                className="p-1 px-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            {/* Content */}
+            <div className="p-6 overflow-y-auto flex-1 flex flex-col gap-4">
+              <p className="text-sm text-gray-600 font-medium leading-relaxed">
+                Este relatório lista de forma organizada todas as figurinhas que ainda faltam no seu álbum, divididas por seleção. Você pode enviar diretamente para o WhatsApp ou copiar o texto para colar em qualquer grupo!
+              </p>
+              
+              <div className="relative flex-1">
+                <div className="absolute right-3 top-3 text-[10px] font-black uppercase text-green-700/60 bg-green-50 px-2 py-1 rounded border border-green-200">
+                  Pré-visualização
+                </div>
+                <div className="w-full p-4 pr-12 bg-green-50/50 border border-green-200 rounded-xl font-mono text-sm text-green-900 whitespace-pre-wrap select-all max-h-[35vh] overflow-y-auto hide-scrollbar scroll-smooth shadow-inner">
+                  {generateMissingReportText()}
+                </div>
+              </div>
+            </div>
+            
+            {/* Footer */}
+            <div className="p-5 border-t border-gray-100 bg-gray-50 flex flex-col sm:flex-row gap-3">
+              <button
+                onClick={handleCopyText}
+                className={`flex-1 flex items-center justify-center py-3 px-4 rounded-xl border font-bold text-sm transition-all cursor-pointer ${
+                  copied 
+                    ? 'bg-green-50 border-green-500 text-green-700' 
+                    : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                {copied ? (
+                  <>
+                    <Check className="w-4 h-4 mr-2" />
+                    Copiado!
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-4 h-4 mr-2" />
+                    Copiar Mensagem
+                  </>
+                )}
+              </button>
+              
+              <button
+                onClick={() => {
+                  const url = `https://api.whatsapp.com/send?text=${encodeURIComponent(generateMissingReportText())}`;
+                  window.open(url, '_blank');
+                }}
+                className="flex-[1.2] flex items-center justify-center py-3 px-4 bg-green-600 hover:bg-green-700 text-white font-bold text-sm rounded-xl shadow-md transition-all cursor-pointer"
+              >
+                <MessageCircle className="w-4 h-4 mr-2" />
+                Enviar para o WhatsApp
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       
       {/* Header Info */}
       <div className="bg-white p-6 md:p-8 rounded-2xl border border-yellow-300 shadow-sm">
@@ -450,6 +557,13 @@ export default function AlbumView() {
            </div>
            
            <div className="flex items-center justify-end gap-3 self-start">
+              <button
+                onClick={() => setIsShareModalOpen(true)}
+                className="flex items-center text-sm font-bold px-4 py-2 bg-green-700 text-white rounded-lg hover:bg-green-800 transition-colors shadow-sm cursor-pointer mr-2"
+              >
+                <MessageCircle className="w-4 h-4 mr-2" />
+                Relatório WhatsApp
+              </button>
               <button
                 onClick={generatePDF}
                 className="flex items-center text-sm font-bold px-4 py-2 bg-yellow-400 text-green-900 rounded-lg hover:bg-yellow-500 transition-colors shadow-sm"
